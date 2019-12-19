@@ -43,7 +43,7 @@ func TestClient(t *testing.T) {
 	client.Config.Auth.Basic.Username = "testuser"
 	client.Config.Auth.Basic.Password = "testpass"
 
-	req := client.NewRequest(resty.MethodGet, "/v2/:namespace/tags/list")
+	req := client.NewRequest(resty.MethodGet, "/v2/:name/tags/list")
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("Error executing request: %s", err)

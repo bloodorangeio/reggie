@@ -94,7 +94,7 @@ func (client *Client) NewRequest(method, path string, opts ...reqOpt) *Request {
 		namespace = r.Name
 	}
 
-	path = strings.Replace(path, ":namespace", namespace, -1)
+	path = strings.Replace(path, ":name", namespace, -1)
 	path = strings.Replace(path, ":digest", r.Digest, -1)
 	path = strings.Replace(path, ":uuid", r.UUID, -1)
 	url := fmt.Sprintf("%s%s", client.Config.Address, path)
@@ -112,7 +112,7 @@ func (req *Request) Execute(method, url string) (*Response, error) {
 }
 
 func (req *Request) isValid() bool {
-	re := regexp.MustCompile(":namespace|:digest|:uuid|//{2,}")
+	re := regexp.MustCompile(":name|:digest|:uuid|//{2,}")
 	matches := re.FindAllString(req.URL, -1)
 	if len(matches) == 0 {
 		return true
