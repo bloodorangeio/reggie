@@ -25,7 +25,6 @@ type (
 		Config struct {
 			Address   string
 			Namespace string
-			UUID      string
 			Auth      struct {
 				Basic struct {
 					Username string
@@ -50,41 +49,36 @@ func (resp *Response) IsUnauthorized() bool {
 	return resp.StatusCode() == http.StatusUnauthorized
 }
 
-type Opts struct {
-	Name   string
-	Digest string
-}
-
-type reqOpts struct {
+type reqConfig struct {
 	Name   string
 	Digest string
 	UUID   string
 }
 
-type reqOpt func(o *reqOpts)
+type reqOpt func(c *reqConfig)
 
 func WithName(name string) reqOpt {
-	return func(o *reqOpts) {
-		o.Name = name
+	return func(c *reqConfig) {
+		c.Name = name
 	}
 }
 
 func WithDigest(digest string) reqOpt {
-	return func(o *reqOpts) {
-		o.Digest = digest
+	return func(c *reqConfig) {
+		c.Digest = digest
 	}
 }
 
 func WithUUID(uuid string) reqOpt {
-	return func(o *reqOpts) {
-		o.UUID = uuid
+	return func(c *reqConfig) {
+		c.UUID = uuid
 	}
 }
 
 func (client *Client) NewRequest(method, path string, opts ...reqOpt) *Request {
 	restyRequest := client.Client.NewRequest()
 	restyRequest.Method = method
-	r := &reqOpts{}
+	r := &reqConfig{}
 	for _, o := range opts {
 		o(r)
 	}
@@ -94,7 +88,7 @@ func (client *Client) NewRequest(method, path string, opts ...reqOpt) *Request {
 		namespace = r.Name
 	}
 
-	path = strings.Replace(path, ":namespace", namespace, -1)
+	path = strings.Replace(path, ":name", namespace, -1)
 	path = strings.Replace(path, ":digest", r.Digest, -1)
 	path = strings.Replace(path, ":uuid", r.UUID, -1)
 	url := fmt.Sprintf("%s%s", client.Config.Address, path)
@@ -107,22 +101,25 @@ func (req *Request) Execute(method, url string) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	for k, _ := range req.QueryParam {
+		req.QueryParam.Del(k)
+	}
 	resp := &Response{restyResponse}
 	return resp, err
 }
 
-func (req *Request) hasInvalidNamespace() bool {
-	re := regexp.MustCompile(":namespace")
+func (req *Request) isValid() bool {
+	re := regexp.MustCompile(":name|:digest|:uuid|//{2,}")
 	matches := re.FindAllString(req.URL, -1)
-	if len(matches) != 0 {
+	if len(matches) == 0 {
 		return true
 	}
 	return false
 }
 
 func (client *Client) Do(req *Request) (*Response, error) {
-	if req.hasInvalidNamespace() {
-		return nil, fmt.Errorf("client must have a namespace set to make requests")
+	if !req.isValid() {
+		return nil, fmt.Errorf("request is invalid")
 	}
 
 	resp, err := req.Execute(req.Method, req.URL)
@@ -180,8 +177,4 @@ func parseAuthHeader(authHeaderRaw string) *authHeader {
 
 func (client *Client) SetName(namespace string) {
 	client.Config.Namespace = namespace
-}
-
-func (client *Client) SetDigest(digest string) {
-	client.Config.Digest = digest
 }
