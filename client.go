@@ -25,6 +25,7 @@ type (
 		Config struct {
 			Address   string
 			Namespace string
+			UUID      string
 			Auth      struct {
 				Basic struct {
 					Username string
@@ -49,10 +50,53 @@ func (resp *Response) IsUnauthorized() bool {
 	return resp.StatusCode() == http.StatusUnauthorized
 }
 
-func (client *Client) NewRequest(method, path string) *Request {
+type Opts struct {
+	Name   string
+	Digest string
+}
+
+type reqOpts struct {
+	Name   string
+	Digest string
+	UUID   string
+}
+
+type reqOpt func(o *reqOpts)
+
+func WithName(name string) reqOpt {
+	return func(o *reqOpts) {
+		o.Name = name
+	}
+}
+
+func WithDigest(digest string) reqOpt {
+	return func(o *reqOpts) {
+		o.Digest = digest
+	}
+}
+
+func WithUUID(uuid string) reqOpt {
+	return func(o *reqOpts) {
+		o.UUID = uuid
+	}
+}
+
+func (client *Client) NewRequest(method, path string, opts ...reqOpt) *Request {
 	restyRequest := client.Client.NewRequest()
 	restyRequest.Method = method
-	path = strings.Replace(path, ":namespace", client.Config.Namespace, -1)
+	r := &reqOpts{}
+	for _, o := range opts {
+		o(r)
+	}
+
+	namespace := client.Config.Namespace
+	if r.Name != "" {
+		namespace = r.Name
+	}
+
+	path = strings.Replace(path, ":namespace", namespace, -1)
+	path = strings.Replace(path, ":digest", r.Digest, -1)
+	path = strings.Replace(path, ":uuid", r.UUID, -1)
 	url := fmt.Sprintf("%s%s", client.Config.Address, path)
 	restyRequest.URL = url
 	return &Request{restyRequest}
@@ -67,7 +111,20 @@ func (req *Request) Execute(method, url string) (*Response, error) {
 	return resp, err
 }
 
+func (req *Request) hasInvalidNamespace() bool {
+	re := regexp.MustCompile(":namespace")
+	matches := re.FindAllString(req.URL, -1)
+	if len(matches) != 0 {
+		return true
+	}
+	return false
+}
+
 func (client *Client) Do(req *Request) (*Response, error) {
+	if req.hasInvalidNamespace() {
+		return nil, fmt.Errorf("client must have a namespace set to make requests")
+	}
+
 	resp, err := req.Execute(req.Method, req.URL)
 	if err != nil {
 		return nil, err
@@ -93,7 +150,7 @@ func (client *Client) retryRequestWithAuth(originalRequest *Request, originalRes
 	req.SetQueryParam("scope", h.Scope)
 	req.SetHeader("Accept", "application/json")
 	req.SetBasicAuth(client.Config.Auth.Basic.Username, client.Config.Auth.Basic.Password)
-	authResp, err := req.Execute(resty.MethodGet, h.Realm)
+	authResp, err := req.Execute(GET, h.Realm)
 	if err != nil {
 		return nil, err
 	}
@@ -119,4 +176,12 @@ func parseAuthHeader(authHeaderRaw string) *authHeader {
 	var h authHeader
 	mapstructure.Decode(m, &h)
 	return &h
+}
+
+func (client *Client) SetName(namespace string) {
+	client.Config.Namespace = namespace
+}
+
+func (client *Client) SetDigest(digest string) {
+	client.Config.Digest = digest
 }
