@@ -52,10 +52,4 @@ func TestClient(t *testing.T) {
 	if status := resp.StatusCode(); status != http.StatusOK {
 		t.Fatalf("Expected response code 200 but was %d", status)
 	}
-
-	req = client.NewRequest(resty.MethodGet, "/v2/:namespace/tags/list", WithName("thisCantPossiblyBeReal"))
-	resp, err = client.Do(req)
-	if status := resp.StatusCode(); status != http.StatusNotFound {
-		t.Fatalf("Nonexistent repository should return Status 404")
-	}
 }

@@ -111,17 +111,17 @@ func (req *Request) Execute(method, url string) (*Response, error) {
 	return resp, err
 }
 
-func (req *Request) hasInvalidNamespace() bool {
-	re := regexp.MustCompile(":namespace")
+func (req *Request) isValid() bool {
+	re := regexp.MustCompile(":namespace|:digest|:uuid|//{2,}")
 	matches := re.FindAllString(req.URL, -1)
-	if len(matches) != 0 {
+	if len(matches) == 0 {
 		return true
 	}
 	return false
 }
 
 func (client *Client) Do(req *Request) (*Response, error) {
-	if req.hasInvalidNamespace() {
+	if !req.isValid() {
 		return nil, fmt.Errorf("client must have a namespace set to make requests")
 	}
 
@@ -180,8 +180,4 @@ func parseAuthHeader(authHeaderRaw string) *authHeader {
 
 func (client *Client) SetName(namespace string) {
 	client.Config.Namespace = namespace
-}
-
-func (client *Client) SetDigest(digest string) {
-	client.Config.Digest = digest
 }
