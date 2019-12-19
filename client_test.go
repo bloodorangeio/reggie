@@ -52,4 +52,14 @@ func TestClient(t *testing.T) {
 	if status := resp.StatusCode(); status != http.StatusOK {
 		t.Fatalf("Expected response code 200 but was %d", status)
 	}
+
+	req = client.NewRequest(resty.MethodGet, "/v2/:name/tags/list")
+	req.SetQueryParam("digest", "zwxyz")
+	oldURL := req.URL
+	client.Do(req)
+
+	if req.URL != oldURL {
+		t.Errorf("Do is destroying the request url.\n\tOriginal Url: %s\n\tUrl After Do: %s",
+			oldURL, req.URL)
+	}
 }

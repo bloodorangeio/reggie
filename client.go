@@ -125,7 +125,11 @@ func (client *Client) Do(req *Request) (*Response, error) {
 		return nil, fmt.Errorf("client must have a namespace set to make requests")
 	}
 
-	resp, err := req.Execute(req.Method, req.URL)
+	method := req.Method
+	url := req.URL
+	req.Method = ""
+	req.URL = ""
+	resp, err := req.Execute(method, url)
 	if err != nil {
 		return nil, err
 	}
