@@ -54,12 +54,19 @@ func TestClient(t *testing.T) {
 	}
 
 	req = client.NewRequest(resty.MethodGet, "/v2/:name/tags/list")
-	req.SetQueryParam("digest", "zwxyz")
 	oldURL := req.URL
-	client.Do(req)
-
+	param := "digest"
+	value := "zwxyz"
+	req.SetQueryParam(param, value)
 	if req.URL != oldURL {
-		t.Errorf("Do is destroying the request url.\n\tOriginal Url: %s\n\tUrl After Do: %s",
+		t.Fatalf("Something is destroying the request url before Do.\n\tOriginal Url: %s\n\tUrl After Do: %s",
 			oldURL, req.URL)
+	}
+
+	resp, err = client.Do(req)
+
+	if req.URL != oldURL + fmt.Sprintf("?%s=%s", param, value) {
+		t.Errorf("Do is destroying the request url.\n\tOriginal Url: %s\n\tUrl After Do: %s",
+			oldURL, req.Request.URL)
 	}
 }

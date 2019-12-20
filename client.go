@@ -107,6 +107,9 @@ func (req *Request) Execute(method, url string) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	for k, _ := range req.QueryParam {
+		req.QueryParam.Del(k)
+	}
 	resp := &Response{restyResponse}
 	return resp, err
 }
