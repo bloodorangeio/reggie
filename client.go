@@ -122,7 +122,11 @@ func (client *Client) Do(req *Request) (*Response, error) {
 		return nil, fmt.Errorf("request is invalid")
 	}
 
-	resp, err := req.Execute(req.Method, req.URL)
+	method := req.Method
+	url := req.URL
+	req.Method = ""
+	req.URL = ""
+	resp, err := req.Execute(method, url)
 	if err != nil {
 		return nil, err
 	}
