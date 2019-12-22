@@ -3,7 +3,6 @@ package reggie
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"regexp"
 	"strings"
 
@@ -12,14 +11,6 @@ import (
 )
 
 type (
-	Request struct {
-		*resty.Request
-	}
-
-	Response struct {
-		*resty.Response
-	}
-
 	Client struct {
 		*resty.Client
 		Config struct {
@@ -43,19 +34,15 @@ type (
 	authInfo struct {
 		Token string `json:"token"`
 	}
+
+	reqConfig struct {
+		Name   string
+		Digest string
+		UUID   string
+	}
+
+	reqOpt func(c *reqConfig)
 )
-
-func (resp *Response) IsUnauthorized() bool {
-	return resp.StatusCode() == http.StatusUnauthorized
-}
-
-type reqConfig struct {
-	Name   string
-	Digest string
-	UUID   string
-}
-
-type reqOpt func(c *reqConfig)
 
 func WithName(name string) reqOpt {
 	return func(c *reqConfig) {
@@ -96,37 +83,12 @@ func (client *Client) NewRequest(method, path string, opts ...reqOpt) *Request {
 	return &Request{restyRequest}
 }
 
-func (req *Request) Execute(method, url string) (*Response, error) {
-	restyResponse, err := req.Request.Execute(method, url)
-	if err != nil {
-		return nil, err
-	}
-	for k, _ := range req.QueryParam {
-		req.QueryParam.Del(k)
-	}
-	resp := &Response{restyResponse}
-	return resp, err
-}
-
-func (req *Request) isValid() bool {
-	re := regexp.MustCompile(":name|:digest|:uuid|//{2,}")
-	matches := re.FindAllString(req.URL, -1)
-	if len(matches) == 0 {
-		return true
-	}
-	return false
-}
-
 func (client *Client) Do(req *Request) (*Response, error) {
 	if !req.isValid() {
 		return nil, fmt.Errorf("request is invalid")
 	}
 
-	method := req.Method
-	url := req.URL
-	req.Method = ""
-	req.URL = ""
-	resp, err := req.Execute(method, url)
+	resp, err := req.Execute(req.Method, req.URL)
 	if err != nil {
 		return nil, err
 	}
@@ -163,6 +125,7 @@ func (client *Client) retryRequestWithAuth(originalRequest *Request, originalRes
 		return nil, err
 	}
 
+	originalRequest.deleteQueryParams() //Otherwise they will be appended to the URL again
 	originalRequest.SetAuthToken(info.Token)
 	return originalRequest.Execute(originalRequest.Method, originalRequest.URL)
 }
