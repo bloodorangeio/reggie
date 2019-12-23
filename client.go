@@ -89,19 +89,20 @@ func (client *Client) NewRequest(method string, path string, opts ...requestOpti
 		namespace = r.Name
 	}
 
+	replacements := map[string]string{
+		":name":    namespace,
+		":ref":     r.Reference,
+		":digest":  r.Digest,
+		":session": r.SessionID,
+	}
+
 	// substitute known path params
-	if namespace != "" {
-		path = strings.Replace(path, ":name", namespace, -1)
+	for k, v := range replacements {
+		if v != "" {
+			path = strings.Replace(path, k, v, -1)
+		}
 	}
-	if r.Reference != "" {
-		path = strings.Replace(path, ":ref", r.Reference, -1)
-	}
-	if r.Digest != "" {
-		path = strings.Replace(path, ":digest", r.Digest, -1)
-	}
-	if r.SessionID != "" {
-		path = strings.Replace(path, ":session", r.SessionID, -1)
-	}
+
 	path = strings.TrimPrefix(path, "/")
 
 	url := fmt.Sprintf("%s/%s", client.Config.Address, path)
