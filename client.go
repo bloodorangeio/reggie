@@ -1,147 +1,116 @@
 package reggie
 
 import (
-	"encoding/json"
 	"fmt"
-	"regexp"
+	"net/http"
 	"strings"
 
-	"github.com/mitchellh/mapstructure"
+	reg "github.com/genuinetools/reg/registry"
 	"gopkg.in/resty.v1"
 )
 
 type (
+	// Client is an HTTP(s) client to make requests against an OCI registry.
 	Client struct {
 		*resty.Client
-		Config struct {
-			Address   string
-			Namespace string
-			Auth      struct {
-				Basic struct {
-					Username string
-					Password string
-				}
-			}
-		}
+		Config *clientConfig
 	}
 
-	authHeader struct {
-		Realm   string
-		Service string
-		Scope   string
+	clientConfig struct {
+		Address     string
+		Username    string
+		Password    string
+		DefaultName string
 	}
 
-	authInfo struct {
-		Token string `json:"token"`
-	}
-
-	reqConfig struct {
-		Name   string
-		Digest string
-		UUID   string
-	}
-
-	reqOpt func(c *reqConfig)
+	clientOption func(c *clientConfig)
 )
 
-func WithName(name string) reqOpt {
-	return func(c *reqConfig) {
-		c.Name = name
+// NewClient builds a new Client from provided options.
+func NewClient(address string, opts ...clientOption) (*Client, error) {
+	conf := &clientConfig{}
+	conf.Address = strings.TrimSuffix(address, "/")
+	for _, fn := range opts {
+		fn(conf)
+	}
+
+	// TODO: validate config here, return error if it aint no good
+
+	client := Client{}
+	client.Client = resty.New()
+	client.Config = conf
+
+	// For client transport, use reg's multilayer RoundTripper for "Docker-style" auth
+	client.SetTransport(&reg.BasicTransport{
+		Transport: &reg.TokenTransport{
+			Transport: http.DefaultTransport,
+			Username:  client.Config.Username,
+			Password:  client.Config.Password,
+		},
+		URL:      client.Config.Address,
+		Username: client.Config.Username,
+		Password: client.Config.Password,
+	})
+
+	return &client, nil
+}
+
+// WithUsernamePassword sets registry username and password configuration settings.
+func WithUsernamePassword(username string, password string) clientOption {
+	return func(c *clientConfig) {
+		c.Username = username
+		c.Password = password
 	}
 }
 
-func WithDigest(digest string) reqOpt {
-	return func(c *reqConfig) {
-		c.Digest = digest
+// WithDefaultName sets the default registry namespace configuration setting.
+func WithDefaultName(namespace string) clientOption {
+	return func(c *clientConfig) {
+		c.DefaultName = namespace
 	}
 }
 
-func WithUUID(uuid string) reqOpt {
-	return func(c *reqConfig) {
-		c.UUID = uuid
-	}
+// SetDefaultName sets the default registry namespace to use for building a Request.
+func (client *Client) SetDefaultName(namespace string) {
+	client.Config.DefaultName = namespace
 }
 
-func (client *Client) NewRequest(method, path string, opts ...reqOpt) *Request {
+// NewRequest builds a new Request from provided options.
+func (client *Client) NewRequest(method string, path string, opts ...requestOption) *Request {
 	restyRequest := client.Client.NewRequest()
 	restyRequest.Method = method
-	r := &reqConfig{}
+	r := &requestConfig{}
 	for _, o := range opts {
 		o(r)
 	}
 
-	namespace := client.Config.Namespace
+	namespace := client.Config.DefaultName
 	if r.Name != "" {
 		namespace = r.Name
 	}
 
-	path = strings.Replace(path, ":name", namespace, -1)
-	path = strings.Replace(path, ":digest", r.Digest, -1)
-	path = strings.Replace(path, ":uuid", r.UUID, -1)
-	url := fmt.Sprintf("%s%s", client.Config.Address, path)
+	// substitute known path params
+	if namespace != "" {
+		path = strings.Replace(path, ":name", namespace, -1)
+	}
+	if r.Reference != "" {
+		path = strings.Replace(path, ":ref", r.Reference, -1)
+	}
+	if r.Digest != "" {
+		path = strings.Replace(path, ":digest", r.Digest, -1)
+	}
+	if r.SessionID != "" {
+		path = strings.Replace(path, ":session", r.SessionID, -1)
+	}
+	path = strings.TrimPrefix(path, "/")
+
+	url := fmt.Sprintf("%s/%s", client.Config.Address, path)
 	restyRequest.URL = url
+
 	return &Request{restyRequest}
 }
 
+// Do executes a Request and returns a Response.
 func (client *Client) Do(req *Request) (*Response, error) {
-	if !req.isValid() {
-		return nil, fmt.Errorf("request is invalid")
-	}
-
-	resp, err := req.Execute(req.Method, req.URL)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.IsUnauthorized() {
-		resp, err = client.retryRequestWithAuth(req, resp)
-	}
-
-	return resp, err
-}
-
-func (client *Client) retryRequestWithAuth(originalRequest *Request, originalResponse *Response) (*Response, error) {
-	authHeaderRaw := originalResponse.Header().Get("Www-Authenticate")
-	if authHeaderRaw == "" {
-		return originalResponse, nil
-	}
-
-	h := parseAuthHeader(authHeaderRaw)
-
-	req := resty.R()
-	req.SetQueryParam("service", h.Service)
-	req.SetQueryParam("scope", h.Scope)
-	req.SetHeader("Accept", "application/json")
-	req.SetBasicAuth(client.Config.Auth.Basic.Username, client.Config.Auth.Basic.Password)
-	authResp, err := req.Execute(GET, h.Realm)
-	if err != nil {
-		return nil, err
-	}
-
-	var info authInfo
-	bodyBytes := authResp.Body()
-	err = json.Unmarshal(bodyBytes, &info)
-	if err != nil {
-		return nil, err
-	}
-
-	originalRequest.deleteQueryParams() //Otherwise they will be appended to the URL again
-	originalRequest.SetAuthToken(info.Token)
-	return originalRequest.Execute(originalRequest.Method, originalRequest.URL)
-}
-
-func parseAuthHeader(authHeaderRaw string) *authHeader {
-	re := regexp.MustCompile(`([a-zA-z]+)="(.+?)"`)
-	matches := re.FindAllStringSubmatch(authHeaderRaw, -1)
-	m := make(map[string]string)
-	for i := 0; i < len(matches); i++ {
-		m[matches[i][1]] = matches[i][2]
-	}
-	var h authHeader
-	mapstructure.Decode(m, &h)
-	return &h
-}
-
-func (client *Client) SetName(namespace string) {
-	client.Config.Namespace = namespace
+	return req.Execute(req.Method, req.URL)
 }

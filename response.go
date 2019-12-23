@@ -1,17 +1,12 @@
 package reggie
 
 import (
-	"net/http"
-
 	"gopkg.in/resty.v1"
 )
 
 type (
+	// Response is an HTTP response returned from an OCI registry.
 	Response struct {
 		*resty.Response
 	}
 )
-
-func (resp *Response) IsUnauthorized() bool {
-	return resp.StatusCode() == http.StatusUnauthorized
-}
