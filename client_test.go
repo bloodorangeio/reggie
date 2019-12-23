@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
-
-	"gopkg.in/resty.v1"
 )
 
 func TestClient(t *testing.T) {
@@ -36,37 +35,102 @@ func TestClient(t *testing.T) {
 	}))
 	defer registryTestServer.Close()
 
-	client := &Client{}
-	client.Client = resty.New()
-	client.Config.Address = registryTestServer.URL
-	client.SetName("testnamespace")
-	client.Config.Auth.Basic.Username = "testuser"
-	client.Config.Auth.Basic.Password = "testpass"
+	client, err := NewClient(registryTestServer.URL,
+		WithUsernamePassword("testuser", "testpass"),
+		WithDefaultName("testname"))
+	if err != nil {
+		t.Fatalf("Error creating client: %s", err)
+	}
 
-	req := client.NewRequest(resty.MethodGet, "/v2/:name/tags/list")
+	// test default name
+	req := client.NewRequest(GET, "/v2/:name/tags/list")
+	if !strings.HasSuffix(req.URL, "/v2/testname/tags/list") {
+		t.Fatalf("NewRequest does not add default namespace to URL")
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("Error executing request: %s", err)
 	}
-
 	if status := resp.StatusCode(); status != http.StatusOK {
 		t.Fatalf("Expected response code 200 but was %d", status)
 	}
 
-	req = client.NewRequest(resty.MethodGet, "/v2/:name/tags/list")
-	oldURL := req.URL
-	param := "digest"
-	value := "zwxyz"
-	req.SetQueryParam(param, value)
-	if req.URL != oldURL {
-		t.Fatalf("Something is destroying the request url before Do.\n\tOriginal Url: %s\n\tUrl After Do: %s",
-			oldURL, req.URL)
+	// test default name reset
+	client.SetDefaultName("othername")
+	req = client.NewRequest(GET, "/v2/:name/tags/list")
+	if !strings.HasSuffix(req.URL, "/v2/othername/tags/list") {
+		t.Fatalf("NewRequest does not add runtime namespace to URL")
+	}
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Error executing request: %s", err)
+	}
+	if status := resp.StatusCode(); status != http.StatusOK {
+		t.Fatalf("Expected response code 200 but was %d", status)
 	}
 
+	// test custom name on request
+	req = client.NewRequest(GET, "/v2/:name/tags/list", WithName("customname"))
+	if !strings.HasSuffix(req.URL, "/v2/customname/tags/list") {
+		t.Fatalf("NewRequest does not add runtime namespace to URL")
+	}
 	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Error executing request: %s", err)
+	}
+	if status := resp.StatusCode(); status != http.StatusOK {
+		t.Fatalf("Expected response code 200 but was %d", status)
+	}
 
-	if req.URL != oldURL + fmt.Sprintf("?%s=%s", param, value) {
-		t.Errorf("Do is destroying the request url.\n\tOriginal Url: %s\n\tUrl After Do: %s",
-			oldURL, req.Request.URL)
+	// test reference on request
+	req = client.NewRequest(HEAD, "/v2/:name/manifests/:ref", WithRef("silly"))
+	if !strings.HasSuffix(req.URL, "/v2/othername/manifests/silly") {
+		t.Fatalf("NewRequest does not add runtime reference to URL")
+	}
+
+	// test digest on request
+	digest := "6f4e69a5ff18d92e7315e3ee31c62165ebf25bfa05cad05c0d09d8f412dae401"
+	req = client.NewRequest(GET, "/v2/:name/blobs/:digest", WithDigest(digest))
+	if !strings.HasSuffix(req.URL, fmt.Sprintf("/v2/othername/blobs/%s", digest)) {
+		t.Fatalf("NewRequest does not add runtime digest to URL")
+	}
+
+	// test session id on request
+	id := "f0ca5d12-5557-4747-9c21-3d916f2fc885"
+	req = client.NewRequest(GET, "/v2/:name/blobs/uploads/:session", WithSessionID(id))
+	if !strings.HasSuffix(req.URL, fmt.Sprintf("/v2/othername/blobs/uploads/%s", id)) {
+		t.Fatalf("NewRequest does not add runtime digest to URL")
+	}
+
+	// invalid request (no ref)
+	req = client.NewRequest(HEAD, "/v2/:name/manifests/:ref")
+	resp, err = client.Do(req)
+	if err == nil {
+		t.Fatalf("Expected error with missing ref")
+	}
+
+	// invalid request (no digest)
+	req = client.NewRequest(GET, "/v2/:name/blobs/:digest")
+	resp, err = client.Do(req)
+	if err == nil {
+		t.Fatalf("Expected error with missing digest")
+	}
+
+	// invalid request (no session id)
+	req = client.NewRequest(GET, "/v2/:name/blobs/uploads/:session")
+	resp, err = client.Do(req)
+	if err == nil {
+		t.Fatalf("Expected error with missing session id")
+	}
+
+	// bad address on client
+	badClient, err := NewClient("xwejknxw://jshnws")
+	if err != nil {
+		t.Fatalf("Error creating client with bad address: %s", err)
+	}
+	req = badClient.NewRequest(GET, "/v2/:name/tags/list", WithName("customname"))
+	resp, err = badClient.Do(req)
+	if err == nil {
+		t.Fatalf("Expected error with bad address")
 	}
 }
