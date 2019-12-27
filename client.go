@@ -20,6 +20,7 @@ type (
 		Address     string
 		Username    string
 		Password    string
+		Debug       bool
 		DefaultName string
 	}
 
@@ -67,6 +68,12 @@ func WithUsernamePassword(username string, password string) clientOption {
 func WithDefaultName(namespace string) clientOption {
 	return func(c *clientConfig) {
 		c.DefaultName = namespace
+	}
+}
+
+func WithDebug(debug bool) clientOption {
+	return func(c *clientConfig) {
+		c.Debug = debug
 	}
 }
 

@@ -42,6 +42,16 @@ func TestClient(t *testing.T) {
 		t.Fatalf("Error creating client: %s", err)
 	}
 
+	//test setting debug option
+	client2, err := NewClient(registryTestServer.URL, WithDebug(true))
+	if err != nil {
+		t.Fatalf("Error creating client: %s", err)
+	}
+
+	if !client2.Config.Debug {
+		t.Errorf("Setting the debug flag didn't work")
+	}
+
 	// test default name
 	req := client.NewRequest(GET, "/v2/:name/tags/list")
 	if !strings.HasSuffix(req.URL, "/v2/testname/tags/list") {
