@@ -2,7 +2,6 @@ package reggie
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 
 	reg "github.com/genuinetools/reg/registry"
@@ -44,7 +43,7 @@ func NewClient(address string, opts ...clientOption) (*Client, error) {
 	// For client transport, use reg's multilayer RoundTripper for "Docker-style" auth
 	client.SetTransport(&reg.BasicTransport{
 		Transport: &reg.TokenTransport{
-			Transport: http.DefaultTransport,
+			Transport: client.Client.GetClient().Transport,
 			Username:  client.Config.Username,
 			Password:  client.Config.Password,
 		},
