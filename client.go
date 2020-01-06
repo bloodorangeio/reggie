@@ -2,7 +2,11 @@ package reggie
 
 import (
 	"fmt"
+	"net"
+	"net/http"
+	"runtime"
 	"strings"
+	"time"
 
 	reg "github.com/genuinetools/reg/registry"
 	"gopkg.in/resty.v1"
@@ -43,7 +47,7 @@ func NewClient(address string, opts ...clientOption) (*Client, error) {
 	// For client transport, use reg's multilayer RoundTripper for "Docker-style" auth
 	client.SetTransport(&reg.BasicTransport{
 		Transport: &reg.TokenTransport{
-			Transport: client.Client.GetClient().Transport,
+			Transport: createTransport(),
 			Username:  client.Config.Username,
 			Password:  client.Config.Password,
 		},
@@ -120,4 +124,22 @@ func (client *Client) NewRequest(method string, path string, opts ...requestOpti
 // Do executes a Request and returns a Response.
 func (client *Client) Do(req *Request) (*Response, error) {
 	return req.Execute(req.Method, req.URL)
+}
+
+// adapted from Resty: https://github.com/go-resty/resty/blob/de0735f66dae7abf8fb1073b4ace3032c1491424/client.go#L928
+func createTransport() *http.Transport {
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+		DualStack: true,
+	}
+	return &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           dialer.DialContext,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		MaxIdleConnsPerHost:   runtime.GOMAXPROCS(0) + 1,
+	}
 }
