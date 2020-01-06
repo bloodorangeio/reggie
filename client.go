@@ -45,15 +45,10 @@ func NewClient(address string, opts ...clientOption) (*Client, error) {
 	client.Config = conf
 
 	// For client transport, use reg's multilayer RoundTripper for "Docker-style" auth
-	client.SetTransport(&reg.BasicTransport{
-		Transport: &reg.TokenTransport{
-			Transport: createTransport(),
-			Username:  client.Config.Username,
-			Password:  client.Config.Password,
-		},
-		URL:      client.Config.Address,
-		Username: client.Config.Username,
-		Password: client.Config.Password,
+	client.SetTransport(&reg.TokenTransport{
+		Transport: createTransport(),
+		Username:  client.Config.Username,
+		Password:  client.Config.Password,
 	})
 
 	return &client, nil
