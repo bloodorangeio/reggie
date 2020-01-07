@@ -100,10 +100,10 @@ func (client *Client) NewRequest(method string, path string, opts ...requestOpti
 	}
 
 	replacements := map[string]string{
-		":name":    namespace,
-		":ref":     r.Reference,
-		":digest":  r.Digest,
-		":session": r.SessionID,
+		"<name>":    namespace,
+		"<reference>":     r.Reference,
+		"<digest>":  r.Digest,
+		"<session_id>": r.SessionID,
 	}
 
 	// substitute known path params
@@ -117,6 +117,7 @@ func (client *Client) NewRequest(method string, path string, opts ...requestOpti
 
 	url := fmt.Sprintf("%s/%s", client.Config.Address, path)
 	restyRequest.URL = url
+	restyRequest.SetHeader("User-Agent", "reggie/0.1.1 (https://github.com/bloodorangeio/reggie)")
 
 	return &Request{restyRequest}
 }

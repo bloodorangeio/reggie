@@ -25,7 +25,17 @@ func TestClient(t *testing.T) {
 	registryTestServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := r.Header.Get("Authorization")
 		if h == "Bearer abc123" {
+			w.Header().Set("Location", "http://abc123location.io/v2/blobs/uploads/e361aeb8-3181-11ea-850d-2e728ce88125")
 			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`
+    {
+        "errors": [{
+                "code": "BLOB_UNKNOWN",
+                "message": "blob unknown to registry",
+                "detail": "lol"
+            }
+        ]
+    }`))
 		} else {
 			wwwHeader := fmt.Sprintf("Bearer realm=\"%s/v2/auth\",service=\"testservice\",scope=\"testscope\"",
 				authTestServer.URL)
@@ -53,7 +63,7 @@ func TestClient(t *testing.T) {
 	}
 
 	// test default name
-	req := client.NewRequest(GET, "/v2/:name/tags/list")
+	req := client.NewRequest(GET, "/v2/<name>/tags/list")
 	if !strings.HasSuffix(req.URL, "/v2/testname/tags/list") {
 		t.Fatalf("NewRequest does not add default namespace to URL")
 	}
@@ -67,7 +77,7 @@ func TestClient(t *testing.T) {
 
 	// test default name reset
 	client.SetDefaultName("othername")
-	req = client.NewRequest(GET, "/v2/:name/tags/list")
+	req = client.NewRequest(GET, "/v2/<name>/tags/list")
 	if !strings.HasSuffix(req.URL, "/v2/othername/tags/list") {
 		t.Fatalf("NewRequest does not add runtime namespace to URL")
 	}
@@ -80,7 +90,7 @@ func TestClient(t *testing.T) {
 	}
 
 	// test custom name on request
-	req = client.NewRequest(GET, "/v2/:name/tags/list", WithName("customname"))
+	req = client.NewRequest(GET, "/v2/<name>/tags/list", WithName("customname"))
 	if !strings.HasSuffix(req.URL, "/v2/customname/tags/list") {
 		t.Fatalf("NewRequest does not add runtime namespace to URL")
 	}
@@ -92,42 +102,72 @@ func TestClient(t *testing.T) {
 		t.Fatalf("Expected response code 200 but was %d", status)
 	}
 
+	// test Location header on request
+	relativeLocation := resp.GetRelativeLocation()
+	if strings.Contains(relativeLocation, "http://") || strings.Contains(relativeLocation, "https://") {
+		t.Fatalf("Relative Location contains host")
+	}
+	if relativeLocation == "" {
+		t.Fatalf("Location header not present")
+	}
+
+	// test error function on response
+	e, err := resp.Error()
+	if err != nil {
+		t.Fatalf("Error parsing json: %s", err)
+	}
+	if e.Code() == "" {
+		t.Fatalf("Code not returned in response body")
+	}
+	if e.Message() == "" {
+		t.Fatalf("Message not returned in response body")
+	}
+	if e.Detail() == "" {
+		t.Fatalf("Detail not returned in response body")
+	}
+
+	// test absolute location as well
+	absoluteLocation := resp.GetAbsoluteLocation()
+	if absoluteLocation == "" {
+		t.Fatalf("Location header not present")
+	}
+
 	// test reference on request
-	req = client.NewRequest(HEAD, "/v2/:name/manifests/:ref", WithRef("silly"))
+	req = client.NewRequest(HEAD, "/v2/<name>/manifests/<reference>", WithReference("silly"))
 	if !strings.HasSuffix(req.URL, "/v2/othername/manifests/silly") {
 		t.Fatalf("NewRequest does not add runtime reference to URL")
 	}
 
 	// test digest on request
 	digest := "6f4e69a5ff18d92e7315e3ee31c62165ebf25bfa05cad05c0d09d8f412dae401"
-	req = client.NewRequest(GET, "/v2/:name/blobs/:digest", WithDigest(digest))
+	req = client.NewRequest(GET, "/v2/<name>/blobs/<digest>", WithDigest(digest))
 	if !strings.HasSuffix(req.URL, fmt.Sprintf("/v2/othername/blobs/%s", digest)) {
 		t.Fatalf("NewRequest does not add runtime digest to URL")
 	}
 
 	// test session id on request
 	id := "f0ca5d12-5557-4747-9c21-3d916f2fc885"
-	req = client.NewRequest(GET, "/v2/:name/blobs/uploads/:session", WithSessionID(id))
+	req = client.NewRequest(GET, "/v2/<name>/blobs/uploads/<session_id>", WithSessionID(id))
 	if !strings.HasSuffix(req.URL, fmt.Sprintf("/v2/othername/blobs/uploads/%s", id)) {
 		t.Fatalf("NewRequest does not add runtime digest to URL")
 	}
 
 	// invalid request (no ref)
-	req = client.NewRequest(HEAD, "/v2/:name/manifests/:ref")
+	req = client.NewRequest(HEAD, "/v2/<name>/manifests/<reference>")
 	resp, err = client.Do(req)
 	if err == nil {
 		t.Fatalf("Expected error with missing ref")
 	}
 
 	// invalid request (no digest)
-	req = client.NewRequest(GET, "/v2/:name/blobs/:digest")
+	req = client.NewRequest(GET, "/v2/<name>/blobs/<digest>")
 	resp, err = client.Do(req)
 	if err == nil {
 		t.Fatalf("Expected error with missing digest")
 	}
 
 	// invalid request (no session id)
-	req = client.NewRequest(GET, "/v2/:name/blobs/uploads/:session")
+	req = client.NewRequest(GET, "/v2/<name>/blobs/uploads/<session_id>")
 	resp, err = client.Do(req)
 	if err == nil {
 		t.Fatalf("Expected error with missing session id")
@@ -138,9 +178,10 @@ func TestClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating client with bad address: %s", err)
 	}
-	req = badClient.NewRequest(GET, "/v2/:name/tags/list", WithName("customname"))
+	req = badClient.NewRequest(GET, "/v2/<name>/tags/list", WithName("customname"))
 	resp, err = badClient.Do(req)
 	if err == nil {
 		t.Fatalf("Expected error with bad address")
 	}
+
 }
