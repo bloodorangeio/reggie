@@ -49,13 +49,13 @@ func TestClient(t *testing.T) {
 		WithUsernamePassword("testuser", "testpass"),
 		WithDefaultName("testname"))
 	if err != nil {
-		t.Fatalf("Error creating client: %s", err)
+		t.Fatalf("Errors creating client: %s", err)
 	}
 
 	//test setting debug option
 	client2, err := NewClient(registryTestServer.URL, WithDebug(true))
 	if err != nil {
-		t.Fatalf("Error creating client: %s", err)
+		t.Fatalf("Errors creating client: %s", err)
 	}
 
 	if !client2.Config.Debug {
@@ -67,9 +67,10 @@ func TestClient(t *testing.T) {
 	if !strings.HasSuffix(req.URL, "/v2/testname/tags/list") {
 		t.Fatalf("NewRequest does not add default namespace to URL")
 	}
-	resp, err := client.Do(req)
-	if err != nil {
-		t.Fatalf("Error executing request: %s", err)
+
+	resp, responseErr := client.Do(req)
+	if responseErr != nil {
+		t.Fatalf("Errors executing request: %s", err)
 	}
 	if status := resp.StatusCode(); status != http.StatusOK {
 		t.Fatalf("Expected response code 200 but was %d", status)
@@ -83,7 +84,7 @@ func TestClient(t *testing.T) {
 	}
 	resp, err = client.Do(req)
 	if err != nil {
-		t.Fatalf("Error executing request: %s", err)
+		t.Fatalf("Errors executing request: %s", err)
 	}
 	if status := resp.StatusCode(); status != http.StatusOK {
 		t.Fatalf("Expected response code 200 but was %d", status)
@@ -96,7 +97,7 @@ func TestClient(t *testing.T) {
 	}
 	resp, err = client.Do(req)
 	if err != nil {
-		t.Fatalf("Error executing request: %s", err)
+		t.Fatalf("Errors executing request: %s", err)
 	}
 	if status := resp.StatusCode(); status != http.StatusOK {
 		t.Fatalf("Expected response code 200 but was %d", status)
@@ -112,9 +113,9 @@ func TestClient(t *testing.T) {
 	}
 
 	// test error function on response
-	e, err := resp.Error()
+	e, err := resp.Errors()
 	if err != nil {
-		t.Fatalf("Error parsing json: %s", err)
+		t.Fatalf("Errors parsing json: %s", err)
 	}
 	if e.Code() == "" {
 		t.Fatalf("Code not returned in response body")
@@ -176,7 +177,7 @@ func TestClient(t *testing.T) {
 	// bad address on client
 	badClient, err := NewClient("xwejknxw://jshnws")
 	if err != nil {
-		t.Fatalf("Error creating client with bad address: %s", err)
+		t.Fatalf("Errors creating client with bad address: %s", err)
 	}
 	req = badClient.NewRequest(GET, "/v2/<name>/tags/list", WithName("customname"))
 	resp, err = badClient.Do(req)

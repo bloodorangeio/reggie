@@ -12,8 +12,8 @@ import (
 	"gopkg.in/resty.v1"
 )
 
+// Client is an HTTP(s) client to make requests against an OCI registry.
 type (
-	// Client is an HTTP(s) client to make requests against an OCI registry.
 	Client struct {
 		*resty.Client
 		Config *clientConfig
@@ -101,9 +101,9 @@ func (client *Client) NewRequest(method string, path string, opts ...requestOpti
 	}
 
 	replacements := map[string]string{
-		"<name>":    namespace,
-		"<reference>":     r.Reference,
-		"<digest>":  r.Digest,
+		"<name>":       namespace,
+		"<reference>":  r.Reference,
+		"<digest>":     r.Digest,
 		"<session_id>": r.SessionID,
 	}
 

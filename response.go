@@ -36,7 +36,7 @@ func (resp *Response) GetAbsoluteLocation() string {
 	return resp.Header().Get("Location")
 }
 
-func (resp *Response) Error() (*Error, error) {
+func (resp *Response) Errors() (*Error, error) {
 	e := &Error{}
 	bodyBytes := []byte(resp.String())
 	err := json.Unmarshal(bodyBytes, e)
