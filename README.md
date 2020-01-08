@@ -65,7 +65,7 @@ Below is a table of all of the possible URI parameter substitutions and associat
 
 | URI Parameter | Description | Option method |
 |-|-|-|
-| `<name>` | Namespace of a repository within the registry | `WithDefaultName` (`Client`) or `WithName` (`Request`) |
+| `<name>` | Namespace of a repository within a registry | `WithDefaultName` (`Client`) or<br>`WithName` (`Request`) |
 | `<digest>` | Content-addressable identifier | `WithDigest` (`Request`) |
 | `<reference>` | Tag or digest | `WithReference` (`Request`) |
 | `<session_id>` | Session ID for upload | `WithSessionID` (`Request`) |
