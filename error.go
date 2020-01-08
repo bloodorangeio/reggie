@@ -7,6 +7,7 @@ type (
 		Detail  string `json:"detail"`
 	}
 
+	//TODO: import from opencontainers/distribution-spec/specs-go/v1
 	Error struct {
 		Details []ErrorBody `json:"errors"`
 	}
