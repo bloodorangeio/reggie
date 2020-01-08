@@ -53,6 +53,16 @@ func WithSessionID(id string) requestOption {
 	}
 }
 
+func (req *Request) SetHeader(header, content string) *Request {
+	req.Request.SetHeader(header, content)
+	return req
+}
+
+func (req *Request) SetQueryParam(param, content string) *Request {
+	req.Request.SetQueryParam(param, content)
+	return req
+}
+
 // Execute validates a Request and executes it.
 func (req *Request) Execute(method, url string) (*Response, error) {
 	err := validateRequest(req)
@@ -69,8 +79,9 @@ func (req *Request) Execute(method, url string) (*Response, error) {
 	return resp, err
 }
 
-func (req *Request) SetBody(body []byte) {
+func (req *Request) SetBody(body []byte) *Request {
 	req.Request.SetBody(ioutil.NopCloser(bytes.NewReader(body)))
+	return req
 }
 
 func validateRequest(req *Request) error {
