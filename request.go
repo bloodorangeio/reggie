@@ -1,7 +1,9 @@
 package reggie
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"regexp"
 
 	"gopkg.in/resty.v1"
@@ -30,8 +32,8 @@ func WithName(name string) requestOption {
 	}
 }
 
-// WithRef sets the reference per a single request.
-func WithRef(ref string) requestOption {
+// WithReference sets the reference per a single request.
+func WithReference(ref string) requestOption {
 	return func(c *requestConfig) {
 		c.Reference = ref
 	}
@@ -67,8 +69,12 @@ func (req *Request) Execute(method, url string) (*Response, error) {
 	return resp, err
 }
 
+func (req *Request) SetBody(body []byte) {
+	req.Request.SetBody(ioutil.NopCloser(bytes.NewReader(body)))
+}
+
 func validateRequest(req *Request) error {
-	re := regexp.MustCompile(":name|:ref|:digest|:session|//{2,}")
+	re := regexp.MustCompile("<name>|<reference>|<digest>|<session_id>|//{2,}")
 	matches := re.FindAllString(req.URL, -1)
 	if len(matches) == 0 {
 		return nil

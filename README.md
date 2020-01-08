@@ -55,7 +55,7 @@ client, err := NewClient("https://quay.io", WithUsernamePassword("username", "pa
 
 ##### WithDefaultName (function)
 `WithDefaultName` is a function taking a `namespace` `string` argument. This namespace will be automatically substituted
-for the special string `:name` in requests, unless the namespace is overridden by an individual request.
+for the special string `<name>` in requests, unless the namespace is overridden by an individual request.
 
 ```go
 func WithDefaultName(namespace string) clientOption
@@ -67,10 +67,17 @@ client, err := NewClient("https://quay.io", WithDefaultName("my/own/repository")
 A Request is created like so:
 ```go
 client, err := NewClient("https://quay.io", WithDefaultName("my/own/repository"))
-req := client.NewRequest(reggie.GET "/v2/:name/tags/list")
+req := client.NewRequest(reggie.GET "/v2/<name>/tags/list")
 ```
 
 Here, `req` becomes a `GET` request to `https://quay.io/v2/my/own/repository/tags/list`
+
+##### SetBody (function)
+`SetBody` is a function taking a []byte argument. This will set the body of the HTTP request.
+
+```go
+func (req *Request) SetBody(body []byte)
+```
 
 ### Request (struct)
 
@@ -94,16 +101,16 @@ req := client.NewRequest(reggie.GET, "/v2/")
 The Client struct's `NewRequest` function supports four possible optional argument functions (in any combination), 
 each exemplified here:
 ```go
-req := client.NewRequest(reggie.GET, "/v2/:name/tags/list", 
+req := client.NewRequest(reggie.GET, "/v2/<name>/tags/list", 
     WithName("my/other/repo")) // "/v2/my/other/repo/tags/list"
 
-req = client.NewRequest(reggie.PUT, "/v2/my/repo/manifests/:ref",
-	WithRef("test1.0")) // "/v2/my/repo/manifests/test1.0"
+req = client.NewRequest(reggie.PUT, "/v2/my/repo/manifests/<reference>",
+	WithReference("test1.0")) // "/v2/my/repo/manifests/test1.0"
 
-req = client.NewRequest(reggie.HEAD, "/v2/my/repo/blobs/:digest", 
+req = client.NewRequest(reggie.HEAD, "/v2/my/repo/blobs/<digest>", 
     WithDigest(<some-digest>)) // "/v2/my/repo/blobs/<some-digest>"
 
-req = client.NewRequest(reggie.PUT, "/v2/my/repo/blobs/uploads/:session", 
+req = client.NewRequest(reggie.PUT, "/v2/my/repo/blobs/uploads/<session_id>", 
     reggie.WithSessionID(<some-session-id>)) // "/v2/my/repo/blobs/uploads/<some-session-id>"
 ```
 
@@ -122,24 +129,40 @@ func (client *Client) Do(req *Request) (*Response, error)
 ```
 ```go
 client, err := NewClient("https://quay.io", WithDefaultName("my/repo"))
-reqest := client.NewRequest(reggie.GET, '/v2/:name/tags/list')
+reqest := client.NewRequest(reggie.GET, '/v2/<name>/tags/list')
 response, err := client.Do(request)
+```
+
+##### GetRelativeLocation (function)
+`GetRelativeLocation` is a function that returns the path contained in the `Location` header of the
+response.
+
+```go
+func (resp *Response) GetRelativeLocation() (string, error)
+```
+
+##### GetAbsoluteLocation (function)
+`GetAbsoluteLocation` is a function that returns the full URL, including the host, contained in the 
+`Location` header of the response.
+
+```go
+func (resp *Response) GetAbsoluteLocation() (string, error)
 ```
 
 ## Usage
 
 ### Path substitutions
-reggie uses a domain-specific language to supply various parts of the URI path.  One of these, `:name`, can be set at
+reggie uses a domain-specific language to supply various parts of the URI path.  One of these, `<name>`, can be set at
 the client level to be used for all requests made by that client, OR at the request level for individual requests.
 Below is a table of the possible substitutions:
 
 
 | Special string | Description                                       | Required function parameter                            |
 |----------------|---------------------------------------------------|--------------------------------------------------------|
-| `:name`        | The namespace of a repository within the registry | `WithDefaultName` (`Client`) or `WithName` (`Request`) |
-| `:digest`      | A content-addressable identifier                  | `WithDigest`                                           |
-| `:session`     | A session ID for uploads to the repository        | `WithSessionID`                                        |
-| `:ref`         | A tag or digest                                   | `WithRef`                                              |
+| `<name>`        | The namespace of a repository within the registry | `WithDefaultName` (`Client`) or `WithName` (`Request`) |
+| `<digest>`      | A content-addressable identifier                  | `WithDigest`                                           |
+| `<session_id>`     | A session ID for uploads to the repository        | `WithSessionID`                                        |
+| `<reference>`         | A tag or digest                                   | `WithReference`                                              |
 
 
 ### Simple example
@@ -164,7 +187,7 @@ func main() {
         panic(err)
     }
 
-    req := client.NewRequest(reggie.GET, "/v2/:name/tags/list")
+    req := client.NewRequest(reggie.GET, "/v2/<name>/tags/list")
     resp, err := client.Do(req)
     if err != nil {
         panic(err)
