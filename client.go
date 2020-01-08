@@ -43,6 +43,7 @@ func NewClient(address string, opts ...clientOption) (*Client, error) {
 	client := Client{}
 	client.Client = resty.New()
 	client.Config = conf
+	client.Debug = conf.Debug
 
 	// For client transport, use reg's multilayer RoundTripper for "Docker-style" auth
 	client.SetTransport(&reg.BasicTransport{
