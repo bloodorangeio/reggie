@@ -70,78 +70,6 @@ Below is a table of all of the possible URI parameter substitutions and associat
 | `<reference>` | Tag or digest | `WithReference` (`Request`) |
 | `<session_id>` | Session ID for upload | `WithSessionID` (`Request`) |
 
-## Example
-
-The following is an example of a resumable blob upload and subsequent manifest upload:
-
-```go
-package main
-
-import (
-    "github.com/bloodorangeio/reggie"
-    godigest "github.com/opencontainers/go-digest"
-
-)
-
-func main() {
-    client := reggie.NewClient("http://localhost:5000",
-        WithDefaultName("my/repo"),
-        WithDebug(true))
-
-    // get the session URL
-    req := client.NewRequest(reggie.POST, "/v2/<name>/blobs/uploads")
-    resp, err := client.Do(req)
-    if err != nil {
-      // handle error
-    }
-
-    blob := []byte("{}\n")
-    blobChunk1 := blob[:1]
-    blobChunk1Range := fmt.Sprintf("0-%d", len(blobChunk1)-1)
-    blobChunk2 := blob[1:]
-    blobChunk2Range := fmt.Sprintf("0-%d", len(blobChunk2)-1)
-    blobDigest := godigest.FromBytes(blob).String()
-
-    // upload the first chunk
-    req = client.NewRequest(reggie.PATCH, resp.GetRelativeLocation())
-    req.SetHeader("Content-Type", "application/octet-stream")
-    req.SetHeader("Content-Length", fmt.Sprintf("%d", len(blobChunk1)))
-    req.SetHeader("Content-Range", blobChunk1Range)
-    req.SetBody(blobChunk1)
-    resp, err = client.Do(req)
-    if err != nil {
-        //handle error
-    }
-
-    // upload the final chunk and close the session
-    req = client.NewRequest(reggie.PUT, resp.GetRelativeLocation())
-    req.SetHeader("Content-Length", fmt.Sprintf("%d", len(blobChunk2)))
-    req.SetHeader("Content-Range", blobChunk2Range)
-    req.SetHeader("Content-Type", "application/octet-stream")
-    req.SetQueryParam("digest", blobDigest)
-    req.SetBody(blobChunk2)
-    resp, err = client.Do(req)
-    if err != nil {
-        //handle error
-    }
-
-    //upload the manifest
-    manifest = []byte(fmt.Sprintf(
-        "{ \"mediaType\": \"application/vnd.oci.image.manifest.v1+json\", \"config\":  { \"digest\": \"%s\", "+
-          "\"mediaType\": \"application/vnd.oci.image.config.v1+json\","+" \"size\": %d }, \"layers\": [], "+
-          "\"schemaVersion\": 2 }",
-        blobDigest, len(blob)))
-    req = client.NewRequest(reggie.PUT, "/v2/<name>/manifests/<reference>", reggie.WithReference("test"))
-    req.SetHeader("Content-Type", "application/vnd.oci.image.manifest.v1+json")
-    req.SetBody(manifest)
-    resp, err = client.Do(req)
-    if err != nil {
-      // handle error
-    }
-}
-
-```
-
 ## Other Features
 
 ### Error Parsing
@@ -183,4 +111,109 @@ reggie.OPTIONS // "OPTIONS"
 Requests made by Reggie will use a custom value by default for the `User-Agent` header in order for registry providers to identify incoming requests:
 ```
 User-Agent: reggie/0.1.1 (https://github.com/bloodorangeio/reggie)
+```
+
+## Example
+
+The following is an example of a resumable blob upload and subsequent manifest upload:
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/bloodorangeio/reggie"
+	godigest "github.com/opencontainers/go-digest"
+)
+
+func main() {
+	// construct client pointing to your registry
+	client, err := reggie.NewClient("http://localhost:5000",
+		reggie.WithDefaultName("my/repo"),
+		reggie.WithDebug(true))
+	if err != nil {
+		panic(err)
+	}
+
+	// get the session URL
+	req := client.NewRequest(reggie.POST, "/v2/<name>/blobs/uploads/")
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+
+	// a blob for an empty manifest config, separated into 2 chunks ("{" and "}")
+	blob := []byte("{}")
+	blobChunk1 := blob[:1]
+	blobChunk1Range := fmt.Sprintf("0-%d", len(blobChunk1)-1)
+	blobChunk2 := blob[1:]
+	blobChunk2Range := fmt.Sprintf("%d-%d", len(blobChunk1), len(blob)-1)
+	blobDigest := godigest.FromBytes(blob).String()
+
+	// upload the first chunk
+	req = client.NewRequest(reggie.PATCH, resp.GetRelativeLocation())
+	req.SetHeader("Content-Type", "application/octet-stream").
+		SetHeader("Content-Length", fmt.Sprintf("%d", len(blobChunk1))).
+		SetHeader("Content-Range", blobChunk1Range).
+		SetBody(blobChunk1)
+	resp, err = client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+
+	// upload the final chunk and close the session
+	req = client.NewRequest(reggie.PUT, resp.GetRelativeLocation())
+	req.SetHeader("Content-Length", fmt.Sprintf("%d", len(blobChunk2))).
+		SetHeader("Content-Range", blobChunk2Range).
+		SetHeader("Content-Type", "application/octet-stream").
+		SetQueryParam("digest", blobDigest).
+		SetBody(blobChunk2)
+	resp, err = client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+
+	// validate the uploaded blob content
+	req = client.NewRequest(reggie.GET, "/v2/<name>/blobs/<digest>",
+		reggie.WithDigest(blobDigest))
+	resp, err = client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Blob content:\n%s\n", resp.String())
+
+	// upload the manifest (referencing the uploaded blob)
+	ref := "test"
+	manifest := []byte(fmt.Sprintf(
+		`{
+	"mediaType": "application/vnd.oci.image.manifest.v1+json",
+	"config": {
+		"digest": "%s",
+		"mediaType": "application/vnd.oci.image.config.v1+json",
+		"size": %d
+	},
+	"layers": [],
+	"schemaVersion": 2
+}`, blobDigest, len(blob)))
+	req = client.NewRequest(reggie.PUT, "/v2/<name>/manifests/<reference>",
+		reggie.WithReference(ref))
+	req.SetHeader("Content-Type", "application/vnd.oci.image.manifest.v1+json").
+		SetBody(manifest)
+	resp, err = client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+
+	// validate the uploaded manifest content
+	req = client.NewRequest(reggie.GET, "/v2/<name>/manifests/<reference>",
+		reggie.WithReference(ref))
+	req.SetHeader("Accept", "application/vnd.oci.image.manifest.v1+json")
+	resp, err = client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Manifest content:\n%s\n", resp.String())
+}
+
 ```
