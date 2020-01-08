@@ -74,8 +74,72 @@ Below is a table of all of the possible URI parameter substitutions and associat
 
 The following is an example of a resumable blob upload and subsequent manifest upload:
 
-```
-// TODO
+```go
+package main
+
+import (
+    "github.com/bloodorangeio/reggie"
+    godigest "github.com/opencontainers/go-digest"
+
+)
+
+func main() {
+    client := reggie.NewClient("http://localhost:5000",
+        WithDefaultName("my/repo"),
+        WithDebug(true))
+
+    // get the session URL
+    req := client.NewRequest(reggie.POST, "/v2/<name>/blobs/uploads")
+    resp, err := client.Do(req)
+    if err != nil {
+      // handle error
+    }
+
+    blob := []byte("{}\n")
+    blobChunk1 := blob[:1]
+    blobChunk1Range := fmt.Sprintf("0-%d", len(blobChunk1)-1)
+    blobChunk2 := blob[1:]
+    blobChunk2Range := fmt.Sprintf("0-%d", len(blobChunk2)-1)
+    blobDigest := godigest.FromBytes(blob).String()
+
+    // upload the first chunk
+    req = client.NewRequest(reggie.PATCH, resp.GetRelativeLocation())
+    req.SetHeader("Content-Type", "application/octet-stream")
+    req.SetHeader("Content-Length", fmt.Sprintf("%d", len(blobChunk1)))
+    req.SetHeader("Content-Range", blobChunk1Range)
+    req.SetBody(blobChunk1)
+    resp, err = client.Do(req)
+    if err != nil {
+        //handle error
+    }
+
+    // upload the final chunk and close the session
+    req = client.NewRequest(reggie.PUT, resp.GetRelativeLocation())
+    req.SetHeader("Content-Length", fmt.Sprintf("%d", len(blobChunk2)))
+    req.SetHeader("Content-Range", blobChunk2Range)
+    req.SetHeader("Content-Type", "application/octet-stream")
+    req.SetQueryParam("digest", blobDigest)
+    req.SetBody(blobChunk2)
+    resp, err = client.Do(req)
+    if err != nil {
+        //handle error
+    }
+
+    //upload the manifest
+    manifest = []byte(fmt.Sprintf(
+        "{ \"mediaType\": \"application/vnd.oci.image.manifest.v1+json\", \"config\":  { \"digest\": \"%s\", "+
+          "\"mediaType\": \"application/vnd.oci.image.config.v1+json\","+" \"size\": %d }, \"layers\": [], "+
+          "\"schemaVersion\": 2 }",
+        blobDigest, len(blob)))
+    req = client.NewRequest(reggie.PUT, "/v2/<name>/manifests/<reference>", reggie.WithReference("test"))
+    req.SetHeader("Content-Type", "application/vnd.oci.image.manifest.v1+json")
+    req.SetBody(manifest)
+    resp, err = client.Do(req)
+    if err != nil {
+      // handle error
+    }
+}
+
 ```
 
 ## Other Features
