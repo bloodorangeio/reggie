@@ -1,200 +1,122 @@
-# reggie
+# Reggie
 
-[![GitHub Actions status](https://github.com/bloodorangeio/reggie/workflows/build/badge.svg)](https://github.com/bloodorangeio/reggie/actions?query=workflow%3Abuild)
-[![Go Report Card](https://goreportcard.com/badge/github.com/bloodorangeio/reggie)](https://goreportcard.com/report/github.com/bloodorangeio/reggie)
-[![GoDoc](https://godoc.org/github.com/bloodorangeio/reggie?status.svg)](https://godoc.org/github.com/bloodorangeio/reggie)
+[![GitHub Actions status](https://github.com/bloodorangeio/reggie/workflows/build/badge.svg)](https://github.com/bloodorangeio/reggie/actions?query=workflow%3Abuild) [![Go Report Card](https://goreportcard.com/badge/github.com/bloodorangeio/reggie)](https://goreportcard.com/report/github.com/bloodorangeio/reggie) [![GoDoc](https://godoc.org/github.com/bloodorangeio/reggie?status.svg)](https://godoc.org/github.com/bloodorangeio/reggie)
 
-Simple Go HTTP client for OCI distribution, built on top of 
-[Resty](https://github.com/go-resty/resty) and [reg](https://github.com/genuinetools/reg).
+![](https://raw.githubusercontent.com/bloodorangeio/reggie/master/reggie.png)
 
-## Primary Components
+Reggie is a dead simple Go HTTP client designed to be used against [OCI Distribution](https://github.com/opencontainers/distribution-spec), built on top of the following libraries:
 
-### Client (struct)
+- [go-resty/resty](https://github.com/go-resty/resty) - for user-friendly HTTP helper methods
+- [genuinetools/reg](https://github.com/genuinetools/reg) - for "Docker-style" auth support
 
-`Client` is a struct that represents an HTTP client, along with its configuration:
+*Note: Authentication/authorization is not part of the distribution spec, but it has been implemented similarly across registry providers targeting the Docker client.*
 
+
+## Getting Started
+
+First import the library:
 ```go
-type (
-    Client struct {
-        *resty.Client
-        Config *clientConfig
-    }
-
-    clientConfig struct {
-        Address     string
-        Username    string
-        Password    string
-        DefaultName string
-    }
-)
+import "github.com/bloodorangeio/reggie"
 ```
 
-`Client`s are intended to be constructed using the `NewClient` function:
+Then construct a client:
 
 ```go
-func NewClient(address string, opts ...clientOption) (*Client, error)
+client, err := reggie.NewClient("http://localhost:5000")
 ```
 
-An example follows:
+You may also construct the client with a number of options related to authentication, etc:
+
 ```go
-client, err := NewClient("https://quay.io")
+client, err := reggie.NewClient("https://r.mysite.io",
+    reggie.WithUsernamePassword("myuser", "mypass"),  // registry credentials
+    reggie.WIthDefaultName("myorg/myrepo"),           // default repo name
+    reggie.WithDebug())                               // enable debug logging
 ```
 
-Optionally, `NewClient` accepts any of two optional function arguments in any combination, exemplified here:
+## Making Requests
 
-##### WithUsernamePassword (function)
-reggie handles authorization and authentication automatically and implicitly.  Simply supply the
-optional `WithUsernamePassword` function as a parameter to `NewClient`.
+Reggie uses a domain-specific language to supply various parts of the URI path in order to provide visual parity with [the spec](https://github.com/opencontainers/distribution-spec/blob/master/spec.md).
+
+For example, to list all tags for the repo `megacorp/superapp`, you might do the following:
 
 ```go
-func WithUsernamePassword(username, password string) clientOption
-```
-```go
-client, err := NewClient("https://quay.io", WithUsernamePassword("username", "password"))
+req := client.NewRequest(reggie.GET, "/v2/<name>/tags/list",
+    reggie.WithName("megacorp/superapp"))
 ```
 
-##### WithDefaultName (function)
-`WithDefaultName` is a function taking a `namespace` `string` argument. This namespace will be automatically substituted
-for the special string `<name>` in requests, unless the namespace is overridden by an individual request.
+This will result in a request object built for `GET /v2/megacorp/superapp/tags/list`.
 
+You may then use any of the methods provided by [resty](https://github.com/go-resty/resty) to modify the request:
 ```go
-func WithDefaultName(namespace string) clientOption
-```
-```go
-client, err := NewClient("https://quay.io", WithDefaultName("my/own/repository"))
+req.SetQueryParam("n", "20")  // example: tag pagination, first 20 results
 ```
 
-A Request is created like so:
+Finally, execute the request, which will return a resty-based response object:
 ```go
-client, err := NewClient("https://quay.io", WithDefaultName("my/own/repository"))
-req := client.NewRequest(reggie.GET "/v2/<name>/tags/list")
+resp, err := client.Do(req)
+fmt.Println("Status Code:", resp.StatusCode())
 ```
 
-Here, `req` becomes a `GET` request to `https://quay.io/v2/my/own/repository/tags/list`
+## Path Substitutions
 
-##### SetBody (function)
-`SetBody` is a function taking a []byte argument. This will set the body of the HTTP request.
+Below is a table of all of the possible URI parameter substitutions and associated methods:
 
-```go
-func (req *Request) SetBody(body []byte)
+
+| URI Parameter | Description | Option method |
+|-|-|-|
+| `<name>` | Namespace of a repository within the registry | `WithDefaultName` (`Client`) or `WithName` (`Request`) |
+| `<digest>` | Content-addressable identifier | `WithDigest` (`Request`) |
+| `<reference>` | Tag or digest | `WithReference` (`Request`) |
+| `<session_id>` | Session ID for upload | `WithSessionID` (`Request`) |
+
+## Example
+
+The following is an example of a resumable blob upload and subsequent manifest upload:
+
+```
+// TODO
 ```
 
-### Request (struct)
+## Other Features
 
-`Request` is a struct that represents an HTTP Request, wrapped around resty's Request struct:
+### Error Parsing
 
+On the response object, you may call the `Errors()` method which will attempt to parse the response body into a list of [OCI ErrorInfo](https://github.com/opencontainers/distribution-spec/blob/master/specs-go/v1/error.go#L36) objects:
 ```go
-Request struct {
-    *resty.Request
+for _, e := range resp.Errors() {
+    fmt.Println("Code:",    e.Code)
+    fmt.Println("Message:", e.Message)
+    fmt.Println("Detail:",  e.Detail)
 }
 ```
 
-`Request`s are intended to be created by the Client:
+### Location Header Parsing
+
+For certain types of requests, such as chunked uploads, the `Location` header is needed in order to make follow-up requests.
+
+Reggie provides two helper methods to obtain the redirect location:
 ```go
-client, err := reggie.NewClient("https://quay.io")
-if err != nil {
-    panic(err)
-}
-req := client.NewRequest(reggie.GET, "/v2/")
+fmt.Println("Relative location:", resp.RelativeLocation())  // /v2/...
+fmt.Println("Absolute location:", resp.AbsoluteLocation())  // https://...
 ```
 
-The Client struct's `NewRequest` function supports four possible optional argument functions (in any combination), 
-each exemplified here:
+### HTTP Method Constants
+
+Simply-named constants are provided for the following HTTP request methods:
 ```go
-req := client.NewRequest(reggie.GET, "/v2/<name>/tags/list", 
-    WithName("my/other/repo")) // "/v2/my/other/repo/tags/list"
-
-req = client.NewRequest(reggie.PUT, "/v2/my/repo/manifests/<reference>",
-	WithReference("test1.0")) // "/v2/my/repo/manifests/test1.0"
-
-req = client.NewRequest(reggie.HEAD, "/v2/my/repo/blobs/<digest>", 
-    WithDigest(<some-digest>)) // "/v2/my/repo/blobs/<some-digest>"
-
-req = client.NewRequest(reggie.PUT, "/v2/my/repo/blobs/uploads/<session_id>", 
-    reggie.WithSessionID(<some-session-id>)) // "/v2/my/repo/blobs/uploads/<some-session-id>"
+reggie.GET     // "GET"
+reggie.PUT     // "PUT"
+reggie.PATCH   // "PATCH"
+reggie.DELETE  // "DELETE"
+reggie.POST    // "POST"
+reggie.HEAD    // "HEAD"
+reggie.OPTIONS // "OPTIONS"
 ```
 
-### Response (struct)
+### Custom User-Agent
 
-`Response` is a struct that represents an HTTP response, wrapped around resty's Response struct:
-```go
-type Response struct {
-    *resty.Response
-}
+Requests made by Reggie will use a custom value by default for the `User-Agent` header in order for registry providers to identify incoming requests:
 ```
-
-With reggie, `Response`s are typically created as a product of the `Client`'s `Do` function:
-```go
-func (client *Client) Do(req *Request) (*Response, error)
+User-Agent: reggie/0.1.1 (https://github.com/bloodorangeio/reggie)
 ```
-```go
-client, err := NewClient("https://quay.io", WithDefaultName("my/repo"))
-reqest := client.NewRequest(reggie.GET, '/v2/<name>/tags/list')
-response, err := client.Do(request)
-```
-
-##### GetRelativeLocation (function)
-`GetRelativeLocation` is a function that returns the path contained in the `Location` header of the
-response.
-
-```go
-func (resp *Response) GetRelativeLocation() (string, error)
-```
-
-##### GetAbsoluteLocation (function)
-`GetAbsoluteLocation` is a function that returns the full URL, including the host, contained in the 
-`Location` header of the response.
-
-```go
-func (resp *Response) GetAbsoluteLocation() (string, error)
-```
-
-## Usage
-
-### Path substitutions
-reggie uses a domain-specific language to supply various parts of the URI path.  One of these, `<name>`, can be set at
-the client level to be used for all requests made by that client, OR at the request level for individual requests.
-Below is a table of the possible substitutions:
-
-
-| Special string | Description                                       | Required function parameter                            |
-|----------------|---------------------------------------------------|--------------------------------------------------------|
-| `<name>`        | The namespace of a repository within the registry | `WithDefaultName` (`Client`) or `WithName` (`Request`) |
-| `<digest>`      | A content-addressable identifier                  | `WithDigest`                                           |
-| `<session_id>`     | A session ID for uploads to the repository        | `WithSessionID`                                        |
-| `<reference>`         | A tag or digest                                   | `WithReference`                                              |
-
-
-### Simple example
-
-The following is a simple program that will make several requests to various paths at Quay.io
-
-```go
-// Usage: go run example.go <cloud> <bucket> <file>
-
-package main
-
-import (
-	"fmt"
-
-	"github.com/bloodorangeio/reggie"
-)
-
-func main() {
-    client, err := reggie.NewClient("https://quay.io", reggie.WithUsernamePassword("username", "password"), 
-        reggie.WithDefaultName("my/repo"))
-    if err != nil {
-        panic(err)
-    }
-
-    req := client.NewRequest(reggie.GET, "/v2/<name>/tags/list")
-    resp, err := client.Do(req)
-    if err != nil {
-        panic(err)
-    }
-
-    fmt.Printf("Response body:\n%v", resp)
-}
-
-```
-
