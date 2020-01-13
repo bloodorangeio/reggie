@@ -45,12 +45,7 @@ req := client.NewRequest(reggie.GET, "/v2/<name>/tags/list",
 
 This will result in a request object built for `GET /v2/megacorp/superapp/tags/list`.
 
-You may then use any of the methods provided by [resty](https://github.com/go-resty/resty) to modify the request:
-```go
-req.SetQueryParam("n", "20")  // example: tag pagination, first 20 results
-```
-
-Finally, execute the request, which will return a resty-based response object:
+Finally, execute the request, which will return a response object:
 ```go
 resp, err := client.Do(req)
 fmt.Println("Status Code:", resp.StatusCode())

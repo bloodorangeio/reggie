@@ -129,17 +129,21 @@ func TestClient(t *testing.T) {
 	}
 
 	// test error function on response
-	e, err := resp.Errors()
+	errorList, err := resp.Errors()
 	if err != nil {
 		t.Fatalf("Errors parsing json: %s", err)
 	}
-	if e.Code() == "" {
+	if len(errorList) == 0 {
+		t.Fatalf("Error list is length zero")
+	}
+	e1 := errorList[0]
+	if e1.Code == "" {
 		t.Fatalf("Code not returned in response body")
 	}
-	if e.Message() == "" {
+	if e1.Message == "" {
 		t.Fatalf("Message not returned in response body")
 	}
-	if e.Detail() == "" {
+	if e1.Detail == "" {
 		t.Fatalf("Detail not returned in response body")
 	}
 

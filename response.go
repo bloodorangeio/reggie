@@ -6,6 +6,7 @@ import (
 	"net/url"
 
 	"github.com/go-resty/resty/v2"
+	spec "github.com/opencontainers/distribution-spec/specs-go/v1"
 )
 
 type (
@@ -44,13 +45,16 @@ func (resp *Response) IsUnauthorized() bool {
 }
 
 // Errors attempts to parse a response as OCI-compliant errors array
-func (resp *Response) Errors() (*Error, error) {
-	e := &Error{}
+func (resp *Response) Errors() ([]ErrorInfo, error) {
+	errorResponse := &spec.ErrorResponse{}
 	bodyBytes := []byte(resp.String())
-	err := json.Unmarshal(bodyBytes, e)
+	err := json.Unmarshal(bodyBytes, errorResponse)
 	if err != nil {
 		return nil, err
 	}
-
-	return e, nil
+	errorList := []ErrorInfo{}
+	for _, errorInfo := range errorResponse.Errors {
+		errorList = append(errorList, ErrorInfo{&errorInfo})
+	}
+	return errorList, nil
 }
