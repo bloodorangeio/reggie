@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	UserAgent = "reggie/0.3.0 (https://github.com/bloodorangeio/reggie)"
+	DefaultUserAgent = "reggie/0.3.0 (https://github.com/bloodorangeio/reggie)"
 )
 
 // Client is an HTTP(s) client to make requests against an OCI registry.
@@ -28,6 +28,7 @@ type (
 		Password    string
 		Debug       bool
 		DefaultName string
+		UserAgent   string
 	}
 
 	clientOption func(c *clientConfig)
@@ -39,6 +40,9 @@ func NewClient(address string, opts ...clientOption) (*Client, error) {
 	conf.Address = strings.TrimSuffix(address, "/")
 	for _, fn := range opts {
 		fn(conf)
+	}
+	if conf.UserAgent == "" {
+		conf.UserAgent = DefaultUserAgent
 	}
 
 	// TODO: validate config here, return error if it aint no good
@@ -68,9 +72,17 @@ func WithDefaultName(namespace string) clientOption {
 	}
 }
 
+// WithDebug enables or disables debug mode.
 func WithDebug(debug bool) clientOption {
 	return func(c *clientConfig) {
 		c.Debug = debug
+	}
+}
+
+// WithUserAgent overrides the client user agent
+func WithUserAgent(userAgent string) clientOption {
+	return func(c *clientConfig) {
+		c.UserAgent = userAgent
 	}
 }
 
@@ -111,7 +123,7 @@ func (client *Client) NewRequest(method string, path string, opts ...requestOpti
 
 	url := fmt.Sprintf("%s/%s", client.Config.Address, path)
 	restyRequest.URL = url
-	restyRequest.SetHeader("User-Agent", UserAgent)
+	restyRequest.SetHeader("User-Agent", client.Config.UserAgent)
 
 	return &Request{restyRequest}
 }

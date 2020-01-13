@@ -30,7 +30,7 @@ func (client *Client) retryRequestWithAuth(originalRequest *Request, originalRes
 		SetQueryParam("service", h.Service).
 		SetQueryParam("scope", h.Scope).
 		SetHeader("Accept", "application/json").
-		SetHeader("User-Agent", UserAgent).
+		SetHeader("User-Agent", client.Config.UserAgent).
 		SetBasicAuth(client.Config.Username, client.Config.Password)
 	authResp, err := req.Execute(GET, h.Realm)
 	if err != nil {

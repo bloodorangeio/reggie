@@ -63,12 +63,13 @@ func TestClient(t *testing.T) {
 
 	client, err := NewClient(registryTestServer.URL,
 		WithUsernamePassword("testuser", "testpass"),
-		WithDefaultName("testname"))
+		WithDefaultName("testname"),
+		WithUserAgent("reggie-tests"))
 	if err != nil {
 		t.Fatalf("Errors creating client: %s", err)
 	}
 
-	//test setting debug option
+	// test setting debug option
 	client2, err := NewClient(registryTestServer.URL, WithDebug(true))
 	if err != nil {
 		t.Fatalf("Errors creating client: %s", err)
@@ -84,6 +85,12 @@ func TestClient(t *testing.T) {
 		t.Fatalf("NewRequest does not add default namespace to URL")
 	}
 
+	// check user agent
+	uaHeader := req.Header.Get("User-Agent")
+	if uaHeader != "reggie-tests" {
+		t.Fatalf("Expected User-Agent header to be \"reggie-tests\" but instead got \"%s\"", uaHeader)
+	}
+
 	resp, responseErr := client.Do(req)
 	if responseErr != nil {
 		t.Fatalf("Errors executing request: %s", err)
@@ -91,6 +98,8 @@ func TestClient(t *testing.T) {
 	if status := resp.StatusCode(); status != http.StatusOK {
 		t.Fatalf("Expected response code 200 but was %d", status)
 	}
+
+
 
 	// test default name reset
 	client.SetDefaultName("othername")
