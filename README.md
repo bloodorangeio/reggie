@@ -130,7 +130,7 @@ import (
 func main() {
 	// construct client pointing to your registry
 	client, err := reggie.NewClient("http://localhost:5000",
-		reggie.WithDefaultName("my/repo"),
+		reggie.WithDefaultName("myorg/myrepo"),
 		reggie.WithDebug(true))
 	if err != nil {
 		panic(err)
@@ -152,8 +152,8 @@ func main() {
 	blobDigest := godigest.FromBytes(blob).String()
 
 	// upload the first chunk
-	req = client.NewRequest(reggie.PATCH, resp.GetRelativeLocation())
-	req.SetHeader("Content-Type", "application/octet-stream").
+	req = client.NewRequest(reggie.PATCH, resp.GetRelativeLocation()).
+		SetHeader("Content-Type", "application/octet-stream").
 		SetHeader("Content-Length", fmt.Sprintf("%d", len(blobChunk1))).
 		SetHeader("Content-Range", blobChunk1Range).
 		SetBody(blobChunk1)
@@ -163,8 +163,8 @@ func main() {
 	}
 
 	// upload the final chunk and close the session
-	req = client.NewRequest(reggie.PUT, resp.GetRelativeLocation())
-	req.SetHeader("Content-Length", fmt.Sprintf("%d", len(blobChunk2))).
+	req = client.NewRequest(reggie.PUT, resp.GetRelativeLocation()).
+		SetHeader("Content-Length", fmt.Sprintf("%d", len(blobChunk2))).
 		SetHeader("Content-Range", blobChunk2Range).
 		SetHeader("Content-Type", "application/octet-stream").
 		SetQueryParam("digest", blobDigest).
@@ -184,21 +184,15 @@ func main() {
 	fmt.Printf("Blob content:\n%s\n", resp.String())
 
 	// upload the manifest (referencing the uploaded blob)
-	ref := "test"
+	ref := "mytag"
 	manifest := []byte(fmt.Sprintf(
-		`{
-	"mediaType": "application/vnd.oci.image.manifest.v1+json",
-	"config": {
-		"digest": "%s",
-		"mediaType": "application/vnd.oci.image.config.v1+json",
-		"size": %d
-	},
-	"layers": [],
-	"schemaVersion": 2
-}`, blobDigest, len(blob)))
+		"{ \"mediaType\": \"application/vnd.oci.image.manifest.v1+json\", \"config\":  { \"digest\": \"%s\", "+
+			"\"mediaType\": \"application/vnd.oci.image.config.v1+json\","+" \"size\": %d }, \"layers\": [], "+
+			"\"schemaVersion\": 2 }",
+		blobDigest, len(blob)))
 	req = client.NewRequest(reggie.PUT, "/v2/<name>/manifests/<reference>",
-		reggie.WithReference(ref))
-	req.SetHeader("Content-Type", "application/vnd.oci.image.manifest.v1+json").
+		reggie.WithReference(ref)).
+		SetHeader("Content-Type", "application/vnd.oci.image.manifest.v1+json").
 		SetBody(manifest)
 	resp, err = client.Do(req)
 	if err != nil {
@@ -207,13 +201,12 @@ func main() {
 
 	// validate the uploaded manifest content
 	req = client.NewRequest(reggie.GET, "/v2/<name>/manifests/<reference>",
-		reggie.WithReference(ref))
-	req.SetHeader("Accept", "application/vnd.oci.image.manifest.v1+json")
+		reggie.WithReference(ref)).
+		SetHeader("Accept", "application/vnd.oci.image.manifest.v1+json")
 	resp, err = client.Do(req)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Printf("Manifest content:\n%s\n", resp.String())
 }
-
 ```
