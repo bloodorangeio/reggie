@@ -2,8 +2,9 @@ package reggie
 
 import (
 	"encoding/json"
-	"gopkg.in/resty.v1"
 	"net/url"
+
+	"github.com/go-resty/resty/v2"
 )
 
 type (

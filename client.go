@@ -8,8 +8,7 @@ import (
 	"strings"
 	"time"
 
-	reg "github.com/genuinetools/reg/registry"
-	"gopkg.in/resty.v1"
+	"github.com/go-resty/resty/v2"
 )
 
 // Client is an HTTP(s) client to make requests against an OCI registry.
@@ -46,8 +45,9 @@ func NewClient(address string, opts ...clientOption) (*Client, error) {
 	client.Debug = conf.Debug
 	client.SetRedirectPolicy(resty.FlexibleRedirectPolicy(20))
 
+	client.SetTransport(createTransport())
 	// For client transport, use reg's multilayer RoundTripper for "Docker-style" auth
-	client.SetTransport(&reg.BasicTransport{
+	/*client.SetTransport(&reg.BasicTransport{
 		Transport: &reg.TokenTransport{
 			Transport: createTransport(),
 			Username:  client.Config.Username,
@@ -56,7 +56,7 @@ func NewClient(address string, opts ...clientOption) (*Client, error) {
 		URL:      client.Config.Address,
 		Username: client.Config.Username,
 		Password: client.Config.Password,
-	})
+	})*/
 
 	return &client, nil
 }

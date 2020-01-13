@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"gopkg.in/resty.v1"
+	"github.com/go-resty/resty/v2"
 )
 
 type (
@@ -52,7 +52,7 @@ func WithSessionID(id string) requestOption {
 }
 
 // SetBody wraps the resty SetBody and returns the request, allowing method chaining
-func (req *Request) SetBody(body []byte) *Request {
+func (req *Request) SetBody(body interface{}) *Request {
 	req.Request.SetBody(body)
 	return req
 }
