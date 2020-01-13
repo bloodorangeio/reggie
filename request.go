@@ -51,16 +51,19 @@ func WithSessionID(id string) requestOption {
 	}
 }
 
+// SetBody wraps the resty SetBody and returns the request, allowing method chaining
 func (req *Request) SetBody(body []byte) *Request {
 	req.Request.SetBody(body)
 	return req
 }
 
+// SetHeader wraps the resty SetHeader and returns the request, allowing method chaining
 func (req *Request) SetHeader(header, content string) *Request {
 	req.Request.SetHeader(header, content)
 	return req
 }
 
+// SetQueryParam wraps the resty SetQueryParam and returns the request, allowing method chaining
 func (req *Request) SetQueryParam(param, content string) *Request {
 	req.Request.SetQueryParam(param, content)
 	return req

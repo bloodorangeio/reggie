@@ -11,7 +11,8 @@ import (
 )
 
 var (
-	lastCapturedRequest *http.Request
+	lastCapturedRequest        *http.Request
+	lastCapturedRequestBodyStr string
 )
 
 func TestClient(t *testing.T) {
@@ -29,6 +30,10 @@ func TestClient(t *testing.T) {
 
 	registryTestServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		lastCapturedRequest = r
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(lastCapturedRequest.Body)
+		lastCapturedRequestBodyStr = buf.String()
+
 		h := r.Header.Get("Authorization")
 		if h == "Bearer abc123" {
 			w.Header().Set("Location", "http://abc123location.io/v2/blobs/uploads/e361aeb8-3181-11ea-850d-2e728ce88125")
@@ -224,10 +229,7 @@ func TestClient(t *testing.T) {
 	}
 
 	// Check that the body did not get lost somewhere in the multi-layer transport
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(lastCapturedRequest.Body)
-	bufStr := buf.String()
-	if bufStr != "abc" {
-		t.Fatalf("Expected body to be \"abc\" but instead got %s", bufStr)
+	if lastCapturedRequestBodyStr != "abc" {
+		t.Fatalf("Expected body to be \"abc\" but instead got %s", lastCapturedRequestBodyStr)
 	}
 }
