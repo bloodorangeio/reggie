@@ -2,6 +2,7 @@ package reggie
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/url"
 
 	"github.com/go-resty/resty/v2"
@@ -37,6 +38,12 @@ func (resp *Response) GetAbsoluteLocation() string {
 	return resp.Header().Get("Location")
 }
 
+// IsUnauthorized returns whether or not the response is a 401
+func (resp *Response) IsUnauthorized() bool {
+	return resp.StatusCode() == http.StatusUnauthorized
+}
+
+// Errors attempts to parse a response as OCI-compliant errors array
 func (resp *Response) Errors() (*Error, error) {
 	e := &Error{}
 	bodyBytes := []byte(resp.String())

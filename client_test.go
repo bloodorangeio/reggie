@@ -35,7 +35,7 @@ func TestClient(t *testing.T) {
 		lastCapturedRequestBodyStr = buf.String()
 
 		h := r.Header.Get("Authorization")
-		if h == "" || h == "Bearer abc123" {
+		if h == "Bearer abc123" {
 			w.Header().Set("Location", "http://abc123location.io/v2/blobs/uploads/e361aeb8-3181-11ea-850d-2e728ce88125")
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`
@@ -210,7 +210,7 @@ func TestClient(t *testing.T) {
 
 	// 5 headers expected: the ones we set plus "Authorization" and "User-Agent"
 	numHeaders := len(lastCapturedRequest.Header)
-	if numHeaders != 4 {
+	if numHeaders != 5 {
 		fmt.Println(lastCapturedRequest.Header)
 		t.Fatalf("Expected 5 headers total, instead got %d", numHeaders)
 	}
@@ -220,7 +220,7 @@ func TestClient(t *testing.T) {
 		"Content-Length",
 		"Content-Range",
 		"Content-Type",
-		//"Authorization",
+		"Authorization",
 		"User-Agent",
 	} {
 		if lastCapturedRequest.Header.Get(h) == "" {

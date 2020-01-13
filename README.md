@@ -4,13 +4,11 @@
 
 ![](https://raw.githubusercontent.com/bloodorangeio/reggie/master/reggie.png)
 
-Reggie is a dead simple Go HTTP client designed to be used against [OCI Distribution](https://github.com/opencontainers/distribution-spec), built on top of the following libraries:
+Reggie is a dead simple Go HTTP client designed to be used against [OCI Distribution](https://github.com/opencontainers/distribution-spec), built on top of [Resty](https://github.com/go-resty/resty).
 
-- [go-resty/resty](https://github.com/go-resty/resty) - for user-friendly HTTP helper methods
-- [genuinetools/reg](https://github.com/genuinetools/reg) - for "Docker-style" auth support
+There is also support added for "Docker-style" auth.
 
 *Note: Authentication/authorization is not part of the distribution spec, but it has been implemented similarly across registry providers targeting the Docker client.*
-
 
 ## Getting Started
 
@@ -110,7 +108,7 @@ reggie.OPTIONS // "OPTIONS"
 
 Requests made by Reggie will use a custom value by default for the `User-Agent` header in order for registry providers to identify incoming requests:
 ```
-User-Agent: reggie/0.1.1 (https://github.com/bloodorangeio/reggie)
+User-Agent: reggie/0.3.0 (https://github.com/bloodorangeio/reggie)
 ```
 
 ## Example
