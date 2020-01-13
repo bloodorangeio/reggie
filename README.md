@@ -4,9 +4,9 @@
 
 ![](https://raw.githubusercontent.com/bloodorangeio/reggie/master/reggie.png)
 
-Reggie is a dead simple Go HTTP client designed to be used against [OCI Distribution](https://github.com/opencontainers/distribution-spec), built on top of [Resty](https://github.com/go-resty/resty).
+Reggie is a dead simple Go HTTP client designed to be used against [OCI Distribution](https://github.com/opencontainers/distribution-spec), built on top of [go-resty/resty](https://github.com/go-resty/resty).
 
-There is also support added for "Docker-style" auth.
+There is also support added for "Docker-style" auth inspired by [genuinetools/reg](https://github.com/genuinetools/reg).
 
 *Note: Authentication/authorization is not part of the distribution spec, but it has been implemented similarly across registry providers targeting the Docker client.*
 

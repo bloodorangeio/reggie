@@ -11,6 +11,7 @@ import (
 )
 
 var (
+	authUseAccessToken         bool
 	lastCapturedRequest        *http.Request
 	lastCapturedRequestBodyStr string
 )
@@ -23,7 +24,11 @@ func TestClient(t *testing.T) {
 			w.WriteHeader(http.StatusUnauthorized)
 		} else {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"token": "abc123"}`))
+			if authUseAccessToken {
+				w.Write([]byte(`{"access_token": "abc123"}`))
+			} else {
+				w.Write([]byte(`{"token": "abc123"}`))
+			}
 		}
 	}))
 	defer authTestServer.Close()
@@ -228,8 +233,16 @@ func TestClient(t *testing.T) {
 		}
 	}
 
-	// Check that the body did not get lost somewhere in the multi-layer transport
+	// Check that the body did not get lost somewhere
 	if lastCapturedRequestBodyStr != "abc" {
 		t.Fatalf("Expected body to be \"abc\" but instead got %s", lastCapturedRequestBodyStr)
+	}
+
+	// test for access_token vs. token
+	authUseAccessToken = true
+	req = client.NewRequest(GET, "/v2/<name>/tags/list")
+	_, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Errors executing request: %s", err)
 	}
 }

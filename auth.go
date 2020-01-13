@@ -15,7 +15,8 @@ type (
 	}
 
 	authInfo struct {
-		Token string `json:"token"`
+		Token       string `json:"token"`
+		AccessToken string `json:"access_token"`
 	}
 )
 
@@ -43,7 +44,11 @@ func (client *Client) retryRequestWithAuth(originalRequest *Request, originalRes
 		return nil, err
 	}
 
-	originalRequest.SetAuthToken(info.Token)
+	token := info.Token
+	if token == "" {
+		token = info.AccessToken
+	}
+	originalRequest.SetAuthToken(token)
 	return originalRequest.Execute(originalRequest.Method, originalRequest.URL)
 }
 
