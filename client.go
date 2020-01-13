@@ -144,5 +144,6 @@ func createTransport() *http.Transport {
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 		MaxIdleConnsPerHost:   runtime.GOMAXPROCS(0) + 1,
+		DisableCompression:    true,
 	}
 }
