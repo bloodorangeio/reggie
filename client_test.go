@@ -1,12 +1,17 @@
 package reggie
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+)
+
+var (
+	lastCapturedRequest *http.Request
 )
 
 func TestClient(t *testing.T) {
@@ -23,6 +28,7 @@ func TestClient(t *testing.T) {
 	defer authTestServer.Close()
 
 	registryTestServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		lastCapturedRequest = r
 		h := r.Header.Get("Authorization")
 		if h == "Bearer abc123" {
 			w.Header().Set("Location", "http://abc123location.io/v2/blobs/uploads/e361aeb8-3181-11ea-850d-2e728ce88125")
@@ -185,4 +191,43 @@ func TestClient(t *testing.T) {
 		t.Fatalf("Expected error with bad address")
 	}
 
+	// Make sure headers and body match after going through auth
+	req = client.NewRequest(PUT, "/a/b/c").
+		SetHeader("Content-Length", "3").
+		SetHeader("Content-Range", "0-2").
+		SetHeader("Content-Type", "application/octet-stream").
+		SetQueryParam("digest", "xyz").
+		SetBody([]byte("abc"))
+	_, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Errors executing request: %s", err)
+	}
+
+	// 5 headers expected: the ones we set plus "Authorization" and "User-Agent"
+	numHeaders := len(lastCapturedRequest.Header)
+	if numHeaders != 5 {
+		fmt.Println(lastCapturedRequest.Header)
+		t.Fatalf("Expected 5 headers total, instead got %d", numHeaders)
+	}
+
+	// Just to be safe, lets check each of the 5 headers are ones we expect
+	for _, h := range []string{
+		"Content-Length",
+		"Content-Range",
+		"Content-Type",
+		"Authorization",
+		"User-Agent",
+	} {
+		if lastCapturedRequest.Header.Get(h) == "" {
+			t.Fatalf("Missing header: %s", h)
+		}
+	}
+
+	// Check that the body did not get lost somewhere in the multi-layer transport
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(lastCapturedRequest.Body)
+	bufStr := buf.String()
+	if bufStr != "abc" {
+		t.Fatalf("Expected body to be \"abc\" but instead got %s", bufStr)
+	}
 }
