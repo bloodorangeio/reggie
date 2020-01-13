@@ -1,9 +1,7 @@
 package reggie
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
 	"regexp"
 
 	"gopkg.in/resty.v1"
@@ -53,6 +51,11 @@ func WithSessionID(id string) requestOption {
 	}
 }
 
+func (req *Request) SetBody(body []byte) *Request {
+	req.Request.SetBody(body)
+	return req
+}
+
 func (req *Request) SetHeader(header, content string) *Request {
 	req.Request.SetHeader(header, content)
 	return req
@@ -77,11 +80,6 @@ func (req *Request) Execute(method, url string) (*Response, error) {
 
 	resp := &Response{restyResponse}
 	return resp, err
-}
-
-func (req *Request) SetBody(body []byte) *Request {
-	req.Request.SetBody(ioutil.NopCloser(bytes.NewReader(body)))
-	return req
 }
 
 func validateRequest(req *Request) error {
