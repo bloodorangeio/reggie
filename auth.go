@@ -32,6 +32,10 @@ func (client *Client) retryRequestWithAuth(originalRequest *Request, originalRes
 		return originalResponse, nil
 	}
 
+	for k, _ := range originalRequest.QueryParam {
+		originalRequest.QueryParam.Del(k)
+	}
+
 	authenticationType := authHeaderMatcher.ReplaceAllString(authHeaderRaw, "$1")
 	if strings.EqualFold(authenticationType, "bearer") {
 		h := parseAuthHeader(authHeaderRaw)
@@ -64,7 +68,7 @@ func (client *Client) retryRequestWithAuth(originalRequest *Request, originalRes
 		return originalRequest.Execute(originalRequest.Method, originalRequest.URL)
 	}
 
-	return nil, errors.New("Something went wrong with authorization")
+	return nil, errors.New("something went wrong with authorization")
 }
 
 func parseAuthHeader(authHeaderRaw string) *authHeader {
