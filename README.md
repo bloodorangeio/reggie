@@ -4,9 +4,9 @@
 
 ![](https://raw.githubusercontent.com/bloodorangeio/reggie/master/reggie.png)
 
-Reggie is a dead simple Go HTTP client designed to be used against [OCI Distribution](https://github.com/opencontainers/distribution-spec), built on top of [go-resty/resty](https://github.com/go-resty/resty).
+Reggie is a dead simple Go HTTP client designed to be used against [OCI Distribution](https://github.com/opencontainers/distribution-spec), built on top of [Resty](https://github.com/go-resty/resty).
 
-There is also support added for "Docker-style" auth inspired by [genuinetools/reg](https://github.com/genuinetools/reg).
+There is also built-in support for both basic auth and ["Docker-style" token auth](https://docs.docker.com/registry/spec/auth/token/).
 
 *Note: Authentication/authorization is not part of the distribution spec, but it has been implemented similarly across registry providers targeting the Docker client.*
 
@@ -65,15 +65,23 @@ Below is a table of all of the possible URI parameter substitutions and associat
 
 ## Other Features
 
-### Error Parsing
+### Method Chaining
 
-On the response object, you may call the `Errors()` method which will attempt to parse the response body into a list of [OCI ErrorInfo](https://github.com/opencontainers/distribution-spec/blob/master/specs-go/v1/error.go#L36) objects:
+Each of the types provided by this package (`Client`, `Request`, & `Response`) are all built on top of types provided by Resty. In most cases, methods provided by Resty should just work on these objects (see the [godoc](https://godoc.org/github.com/go-resty/resty) for more info).
+
+The following commonly-used methods have been wrapped in order to allow for method chaining:
+
+- `req.Header`
+- `req.SetQueryParam`
+- `req.SetBody`
+
+The following is an example of using method chaining to build a request:
 ```go
-for _, e := range resp.Errors() {
-    fmt.Println("Code:",    e.Code)
-    fmt.Println("Message:", e.Message)
-    fmt.Println("Detail:",  e.Detail)
-}
+req := client.NewRequest(reggie.PUT, lastResponse.GetRelativeLocation()).
+    SetHeader("Content-Length", configContentLength).
+    SetHeader("Content-Type", "application/octet-stream").
+    SetQueryParam("digest", configDigest).
+    SetBody(configContent)
 ```
 
 ### Location Header Parsing
@@ -84,6 +92,17 @@ Reggie provides two helper methods to obtain the redirect location:
 ```go
 fmt.Println("Relative location:", resp.RelativeLocation())  // /v2/...
 fmt.Println("Absolute location:", resp.AbsoluteLocation())  // https://...
+```
+
+### Error Parsing
+
+On the response object, you may call the `Errors()` method which will attempt to parse the response body into a list of [OCI ErrorInfo](https://github.com/opencontainers/distribution-spec/blob/master/specs-go/v1/error.go#L36) objects:
+```go
+for _, e := range resp.Errors() {
+    fmt.Println("Code:",    e.Code)
+    fmt.Println("Message:", e.Message)
+    fmt.Println("Detail:",  e.Detail)
+}
 ```
 
 ### HTTP Method Constants
@@ -101,9 +120,15 @@ reggie.OPTIONS // "OPTIONS"
 
 ### Custom User-Agent
 
-Requests made by Reggie will use a custom value by default for the `User-Agent` header in order for registry providers to identify incoming requests:
+By default, requests made by Reggie will use a default value for the `User-Agent` header in order for registry providers to identify incoming requests:
 ```
 User-Agent: reggie/0.3.0 (https://github.com/bloodorangeio/reggie)
+```
+
+If you wish to use a custom value for `User-Agent`, such as "my-agent" for example, you can do the following:
+```go
+client, err := reggie.NewClient("http://localhost:5000",
+    reggie.WithUserAgent("my-agent"))
 ```
 
 ## Example
