@@ -8,8 +8,11 @@ import (
 	"strings"
 	"time"
 
-	reg "github.com/genuinetools/reg/registry"
-	"gopkg.in/resty.v1"
+	"github.com/go-resty/resty/v2"
+)
+
+const (
+	DefaultUserAgent = "reggie/0.3.0 (https://github.com/bloodorangeio/reggie)"
 )
 
 // Client is an HTTP(s) client to make requests against an OCI registry.
@@ -25,6 +28,7 @@ type (
 		Password    string
 		Debug       bool
 		DefaultName string
+		UserAgent   string
 	}
 
 	clientOption func(c *clientConfig)
@@ -37,6 +41,9 @@ func NewClient(address string, opts ...clientOption) (*Client, error) {
 	for _, fn := range opts {
 		fn(conf)
 	}
+	if conf.UserAgent == "" {
+		conf.UserAgent = DefaultUserAgent
+	}
 
 	// TODO: validate config here, return error if it aint no good
 
@@ -45,18 +52,7 @@ func NewClient(address string, opts ...clientOption) (*Client, error) {
 	client.Config = conf
 	client.Debug = conf.Debug
 	client.SetRedirectPolicy(resty.FlexibleRedirectPolicy(20))
-
-	// For client transport, use reg's multilayer RoundTripper for "Docker-style" auth
-	client.SetTransport(&reg.BasicTransport{
-		Transport: &reg.TokenTransport{
-			Transport: createTransport(),
-			Username:  client.Config.Username,
-			Password:  client.Config.Password,
-		},
-		URL:      client.Config.Address,
-		Username: client.Config.Username,
-		Password: client.Config.Password,
-	})
+	client.SetTransport(createTransport())
 
 	return &client, nil
 }
@@ -76,9 +72,17 @@ func WithDefaultName(namespace string) clientOption {
 	}
 }
 
+// WithDebug enables or disables debug mode.
 func WithDebug(debug bool) clientOption {
 	return func(c *clientConfig) {
 		c.Debug = debug
+	}
+}
+
+// WithUserAgent overrides the client user agent
+func WithUserAgent(userAgent string) clientOption {
+	return func(c *clientConfig) {
+		c.UserAgent = userAgent
 	}
 }
 
@@ -119,14 +123,21 @@ func (client *Client) NewRequest(method string, path string, opts ...requestOpti
 
 	url := fmt.Sprintf("%s/%s", client.Config.Address, path)
 	restyRequest.URL = url
-	restyRequest.SetHeader("User-Agent", "reggie/0.1.1 (https://github.com/bloodorangeio/reggie)")
+	restyRequest.SetHeader("User-Agent", client.Config.UserAgent)
 
 	return &Request{restyRequest}
 }
 
 // Do executes a Request and returns a Response.
 func (client *Client) Do(req *Request) (*Response, error) {
-	return req.Execute(req.Method, req.URL)
+	resp, err := req.Execute(req.Method, req.URL)
+	if err != nil {
+		return resp, err
+	}
+	if resp.IsUnauthorized() {
+		resp, err = client.retryRequestWithAuth(req, resp)
+	}
+	return resp, err
 }
 
 // adapted from Resty: https://github.com/go-resty/resty/blob/de0735f66dae7abf8fb1073b4ace3032c1491424/client.go#L928

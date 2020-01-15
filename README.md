@@ -4,13 +4,11 @@
 
 ![](https://raw.githubusercontent.com/bloodorangeio/reggie/master/reggie.png)
 
-Reggie is a dead simple Go HTTP client designed to be used against [OCI Distribution](https://github.com/opencontainers/distribution-spec), built on top of the following libraries:
+Reggie is a dead simple Go HTTP client designed to be used against [OCI Distribution](https://github.com/opencontainers/distribution-spec), built on top of [Resty](https://github.com/go-resty/resty).
 
-- [go-resty/resty](https://github.com/go-resty/resty) - for user-friendly HTTP helper methods
-- [genuinetools/reg](https://github.com/genuinetools/reg) - for "Docker-style" auth support
+There is also built-in support for both basic auth and "Docker-style" token auth.
 
 *Note: Authentication/authorization is not part of the distribution spec, but it has been implemented similarly across registry providers targeting the Docker client.*
-
 
 ## Getting Started
 
@@ -47,12 +45,7 @@ req := client.NewRequest(reggie.GET, "/v2/<name>/tags/list",
 
 This will result in a request object built for `GET /v2/megacorp/superapp/tags/list`.
 
-You may then use any of the methods provided by [resty](https://github.com/go-resty/resty) to modify the request:
-```go
-req.SetQueryParam("n", "20")  // example: tag pagination, first 20 results
-```
-
-Finally, execute the request, which will return a resty-based response object:
+Finally, execute the request, which will return a response object:
 ```go
 resp, err := client.Do(req)
 fmt.Println("Status Code:", resp.StatusCode())
@@ -70,17 +63,46 @@ Below is a table of all of the possible URI parameter substitutions and associat
 | `<reference>` | Tag or digest | `WithReference` (`Request`) |
 | `<session_id>` | Session ID for upload | `WithSessionID` (`Request`) |
 
+## Auth
+
+All requests are first attempted without any authentication. If an endpoint returns a `401 Unauthorized`, and the client has been constructed with a username and password (via `reggie.WithUsernamePassword`), the request is retried with an `Authorization` header.
+
+Included in the 401 response, registries should return a `Www-Authenticate` header describing how to to authenticate.
+
+For more info about the `Www-Authenticate` header and general HTTP auth topics, please see IETF RFCs [7235](https://tools.ietf.org/html/rfc7235) and [6749](https://tools.ietf.org/html/rfc6749).
+
+### Basic Auth
+
+ If the `Www-Authenticate` header contains the string "Basic", then the header used in the retried request will be formatted as `Authorization: Basic <credentials>`, where credentials is the base64 encoding of the username and password joined by a single colon.
+
+### "Docker-style" Token Auth
+*Note: most commercial registries use this method.*
+
+If the`Www-Authenticate` contains the string "Bearer", an attempt is made to retrieve a token from an authorization service endpoint, the URL of which should be provided in the `Realm` field of the header. The header then used in the retried request will be formatted as `Authorization: Bearer <token>`, where token is the one returned from the token endpoint.
+
+Here is a visual of this auth flow copied from the [Docker docs](https://docs.docker.com/registry/spec/auth/token/):
+
+![](./v2-registry-auth.png)
+
 ## Other Features
 
-### Error Parsing
+### Method Chaining
 
-On the response object, you may call the `Errors()` method which will attempt to parse the response body into a list of [OCI ErrorInfo](https://github.com/opencontainers/distribution-spec/blob/master/specs-go/v1/error.go#L36) objects:
+Each of the types provided by this package (`Client`, `Request`, & `Response`) are all built on top of types provided by Resty. In most cases, methods provided by Resty should just work on these objects (see the [godoc](https://godoc.org/github.com/go-resty/resty) for more info).
+
+The following commonly-used methods have been wrapped in order to allow for method chaining:
+
+- `req.Header`
+- `req.SetQueryParam`
+- `req.SetBody`
+
+The following is an example of using method chaining to build a request:
 ```go
-for _, e := range resp.Errors() {
-    fmt.Println("Code:",    e.Code)
-    fmt.Println("Message:", e.Message)
-    fmt.Println("Detail:",  e.Detail)
-}
+req := client.NewRequest(reggie.PUT, lastResponse.GetRelativeLocation()).
+    SetHeader("Content-Length", configContentLength).
+    SetHeader("Content-Type", "application/octet-stream").
+    SetQueryParam("digest", configDigest).
+    SetBody(configContent)
 ```
 
 ### Location Header Parsing
@@ -91,6 +113,17 @@ Reggie provides two helper methods to obtain the redirect location:
 ```go
 fmt.Println("Relative location:", resp.RelativeLocation())  // /v2/...
 fmt.Println("Absolute location:", resp.AbsoluteLocation())  // https://...
+```
+
+### Error Parsing
+
+On the response object, you may call the `Errors()` method which will attempt to parse the response body into a list of [OCI ErrorInfo](https://github.com/opencontainers/distribution-spec/blob/master/specs-go/v1/error.go#L36) objects:
+```go
+for _, e := range resp.Errors() {
+    fmt.Println("Code:",    e.Code)
+    fmt.Println("Message:", e.Message)
+    fmt.Println("Detail:",  e.Detail)
+}
 ```
 
 ### HTTP Method Constants
@@ -108,9 +141,15 @@ reggie.OPTIONS // "OPTIONS"
 
 ### Custom User-Agent
 
-Requests made by Reggie will use a custom value by default for the `User-Agent` header in order for registry providers to identify incoming requests:
+By default, requests made by Reggie will use a default value for the `User-Agent` header in order for registry providers to identify incoming requests:
 ```
-User-Agent: reggie/0.1.1 (https://github.com/bloodorangeio/reggie)
+User-Agent: reggie/0.3.0 (https://github.com/bloodorangeio/reggie)
+```
+
+If you wish to use a custom value for `User-Agent`, such as "my-agent" for example, you can do the following:
+```go
+client, err := reggie.NewClient("http://localhost:5000",
+    reggie.WithUserAgent("my-agent"))
 ```
 
 ## Example

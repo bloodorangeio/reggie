@@ -11,6 +11,7 @@ import (
 )
 
 var (
+	authUseAccessToken         bool
 	lastCapturedRequest        *http.Request
 	lastCapturedRequestBodyStr string
 )
@@ -23,7 +24,11 @@ func TestClient(t *testing.T) {
 			w.WriteHeader(http.StatusUnauthorized)
 		} else {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"token": "abc123"}`))
+			if authUseAccessToken {
+				w.Write([]byte(`{"access_token": "abc123"}`))
+			} else {
+				w.Write([]byte(`{"token": "abc123"}`))
+			}
 		}
 	}))
 	defer authTestServer.Close()
@@ -58,12 +63,13 @@ func TestClient(t *testing.T) {
 
 	client, err := NewClient(registryTestServer.URL,
 		WithUsernamePassword("testuser", "testpass"),
-		WithDefaultName("testname"))
+		WithDefaultName("testname"),
+		WithUserAgent("reggie-tests"))
 	if err != nil {
 		t.Fatalf("Errors creating client: %s", err)
 	}
 
-	//test setting debug option
+	// test setting debug option
 	client2, err := NewClient(registryTestServer.URL, WithDebug(true))
 	if err != nil {
 		t.Fatalf("Errors creating client: %s", err)
@@ -79,6 +85,12 @@ func TestClient(t *testing.T) {
 		t.Fatalf("NewRequest does not add default namespace to URL")
 	}
 
+	// check user agent
+	uaHeader := req.Header.Get("User-Agent")
+	if uaHeader != "reggie-tests" {
+		t.Fatalf("Expected User-Agent header to be \"reggie-tests\" but instead got \"%s\"", uaHeader)
+	}
+
 	resp, responseErr := client.Do(req)
 	if responseErr != nil {
 		t.Fatalf("Errors executing request: %s", err)
@@ -86,6 +98,8 @@ func TestClient(t *testing.T) {
 	if status := resp.StatusCode(); status != http.StatusOK {
 		t.Fatalf("Expected response code 200 but was %d", status)
 	}
+
+
 
 	// test default name reset
 	client.SetDefaultName("othername")
@@ -124,17 +138,21 @@ func TestClient(t *testing.T) {
 	}
 
 	// test error function on response
-	e, err := resp.Errors()
+	errorList, err := resp.Errors()
 	if err != nil {
 		t.Fatalf("Errors parsing json: %s", err)
 	}
-	if e.Code() == "" {
+	if len(errorList) == 0 {
+		t.Fatalf("Error list is length zero")
+	}
+	e1 := errorList[0]
+	if e1.Code == "" {
 		t.Fatalf("Code not returned in response body")
 	}
-	if e.Message() == "" {
+	if e1.Message == "" {
 		t.Fatalf("Message not returned in response body")
 	}
-	if e.Detail() == "" {
+	if e1.Detail == "" {
 		t.Fatalf("Detail not returned in response body")
 	}
 
@@ -228,8 +246,16 @@ func TestClient(t *testing.T) {
 		}
 	}
 
-	// Check that the body did not get lost somewhere in the multi-layer transport
+	// Check that the body did not get lost somewhere
 	if lastCapturedRequestBodyStr != "abc" {
 		t.Fatalf("Expected body to be \"abc\" but instead got %s", lastCapturedRequestBodyStr)
+	}
+
+	// test for access_token vs. token
+	authUseAccessToken = true
+	req = client.NewRequest(GET, "/v2/<name>/tags/list")
+	_, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Errors executing request: %s", err)
 	}
 }
