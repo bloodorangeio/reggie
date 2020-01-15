@@ -6,7 +6,7 @@
 
 Reggie is a dead simple Go HTTP client designed to be used against [OCI Distribution](https://github.com/opencontainers/distribution-spec), built on top of [Resty](https://github.com/go-resty/resty).
 
-There is also built-in support for both basic auth and ["Docker-style" token auth](https://docs.docker.com/registry/spec/auth/token/).
+There is also built-in support for both basic auth and "Docker-style" token auth.
 
 *Note: Authentication/authorization is not part of the distribution spec, but it has been implemented similarly across registry providers targeting the Docker client.*
 
@@ -62,6 +62,26 @@ Below is a table of all of the possible URI parameter substitutions and associat
 | `<digest>` | Content-addressable identifier | `WithDigest` (`Request`) |
 | `<reference>` | Tag or digest | `WithReference` (`Request`) |
 | `<session_id>` | Session ID for upload | `WithSessionID` (`Request`) |
+
+## Auth
+
+All requests are first attempted without any authentication. If an endpoint returns a `401 Unauthorized`, and the client has been constructed with a username and password (via `reggie.WithUsernamePassword`), the request is retried with an `Authorization` header.
+
+Included in the 401 response, registries should return a `Www-Authenticate` header describing how to to authenticate.
+
+For more info about the `Www-Authenticate` header and general HTTP auth topics, please see IETF RFCs [7235](https://tools.ietf.org/html/rfc7235) and [6749](https://tools.ietf.org/html/rfc6749).
+
+### Basic Auth
+
+ If the `Www-Authenticate` header contains the string "Basic", then the header used in the retried request will be formatted as `Authorization: Basic <credentials>`, where credentials is the base64 encoding of the username and password joined by a single colon.
+
+### "Docker-style" Token Auth
+*Note: most commercial registries use this method.*
+
+If the`Www-Authenticate` contains the string "Bearer", an attempt is made to retrieve a token from an authorization service endpoint, the URL of which should be provided in the `Realm` field of the header. The header then used in the retried request will be formatted as `Authorization: Bearer <token>`, where token is the one returned from the token endpoint.
+
+Here is a visual of this auth flow copied from the [Docker docs](https://docs.docker.com/registry/spec/auth/token/):
+
 
 ## Other Features
 
