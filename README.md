@@ -82,6 +82,7 @@ If the`Www-Authenticate` contains the string "Bearer", an attempt is made to ret
 
 Here is a visual of this auth flow copied from the [Docker docs](https://docs.docker.com/registry/spec/auth/token/):
 
+![](./v2-registry-auth.png)
 
 ## Other Features
 
