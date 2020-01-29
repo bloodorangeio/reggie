@@ -1,12 +1,14 @@
 package reggie
 
-import (
-	spec "github.com/opencontainers/distribution-spec/specs-go/v1"
-)
-
 type (
+	ErrorResponse struct {
+		Errors []ErrorInfo `json:"errors"`
+	}
+
 	// ErrorInfo describes a server error returned from a registry.
 	ErrorInfo struct {
-		*spec.ErrorInfo
+		Code    string `json:"code"`
+		Message string `json:"message"`
+		Detail  interface{} `json:"detail"`
 	}
 )
