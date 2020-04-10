@@ -44,9 +44,12 @@ func (client *Client) retryRequestWithAuth(originalRequest *Request, originalRes
 			SetHeader("Accept", "application/json").
 			SetHeader("User-Agent", client.Config.UserAgent).
 			SetBasicAuth(client.Config.Username, client.Config.Password)
-		if h.Scope != "" {
+		if s := client.Config.AuthScope; s != "" {
+			req.SetQueryParam("scope", s)
+		} else if h.Scope != "" {
 			req.SetQueryParam("scope", h.Scope)
 		}
+
 		authResp, err := req.Execute(GET, h.Realm)
 		if err != nil {
 			return nil, err
