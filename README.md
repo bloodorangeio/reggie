@@ -84,6 +84,15 @@ Here is a visual of this auth flow copied from the [Docker docs](https://docs.do
 
 ![](./v2-registry-auth.png)
 
+#### Custom Auth Scope
+
+ It may be necessary to override the `scope` obtained from the `Www-Authenticate` header in the registry's response. This can be done on the client level:
+
+ ```
+client, err := reggie.NewClient("http://localhost:5000",
+    reggie.WithAuthScope("repository:mystuff/myrepo:pull,push"))
+ ```
+
 ## Other Features
 
 ### Method Chaining

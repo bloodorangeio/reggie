@@ -24,6 +24,7 @@ type (
 
 	clientConfig struct {
 		Address     string
+		AuthScope   string
 		Username    string
 		Password    string
 		Debug       bool
@@ -62,6 +63,13 @@ func WithUsernamePassword(username string, password string) clientOption {
 	return func(c *clientConfig) {
 		c.Username = username
 		c.Password = password
+	}
+}
+
+// WithAuthScope overrides the scope provided by the authorization server.
+func WithAuthScope(authScope string) clientOption {
+	return func(c *clientConfig) {
+		c.AuthScope = authScope
 	}
 }
 

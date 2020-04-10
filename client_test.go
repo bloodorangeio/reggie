@@ -79,6 +79,17 @@ func TestClient(t *testing.T) {
 		t.Errorf("Setting the debug flag didn't work")
 	}
 
+	// test setting auth scope
+	testScope := `realm="https://silly.com/v2/auth",service="testservice",scope="pull,push"`
+	client3, err := NewClient(registryTestServer.URL, WithAuthScope(testScope))
+	if err != nil {
+		t.Fatalf("Errors creating client: %s", err)
+	}
+
+	if s := client3.Config.AuthScope; s != testScope {
+		t.Errorf("Setting the auth scope didn't work: %s", s)
+	}
+
 	// test default name
 	req := client.NewRequest(GET, "/v2/<name>/tags/list")
 	if !strings.HasSuffix(req.URL, "/v2/testname/tags/list") {
@@ -98,8 +109,6 @@ func TestClient(t *testing.T) {
 	if status := resp.StatusCode(); status != http.StatusOK {
 		t.Fatalf("Expected response code 200 but was %d", status)
 	}
-
-
 
 	// test default name reset
 	client.SetDefaultName("othername")
