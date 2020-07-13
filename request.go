@@ -8,10 +8,14 @@ import (
 )
 
 type (
+	// RetryCallbackFunc is a function that can mutate a request prior to it
+	// being retried.
+	RetryCallbackFunc func(*Request) error
+
 	// Request is an HTTP request to be sent to an OCI registry.
 	Request struct {
 		*resty.Request
-		retryCallback func(*Request)
+		retryCallback RetryCallbackFunc
 	}
 
 	requestConfig struct {
@@ -19,7 +23,7 @@ type (
 		Reference     string
 		Digest        string
 		SessionID     string
-		RetryCallback func(*Request)
+		RetryCallback RetryCallbackFunc
 	}
 
 	requestOption func(c *requestConfig)
@@ -56,7 +60,7 @@ func WithSessionID(id string) requestOption {
 // WithRetryCallback specifies a callback that will be invoked before a request
 // is retried. This is useful for, e.g., ensuring an io.Reader used for the body
 // will produce the right content on retry.
-func WithRetryCallback(cb func(*Request)) requestOption {
+func WithRetryCallback(cb RetryCallbackFunc) requestOption {
 	return func(c *requestConfig) {
 		c.RetryCallback = cb
 	}

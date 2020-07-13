@@ -3,6 +3,7 @@ package reggie
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -37,7 +38,10 @@ func (client *Client) retryRequestWithAuth(originalRequest *Request, originalRes
 	}
 
 	if originalRequest.retryCallback != nil {
-		originalRequest.retryCallback(originalRequest)
+		err := originalRequest.retryCallback(originalRequest)
+		if err != nil {
+			return nil, fmt.Errorf("retry callback returned error: %s", err)
+		}
 	}
 
 	authenticationType := authHeaderMatcher.ReplaceAllString(authHeaderRaw, "$1")
