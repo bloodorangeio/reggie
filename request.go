@@ -11,13 +11,15 @@ type (
 	// Request is an HTTP request to be sent to an OCI registry.
 	Request struct {
 		*resty.Request
+		retryCallback func(*Request)
 	}
 
 	requestConfig struct {
-		Name      string
-		Reference string
-		Digest    string
-		SessionID string
+		Name          string
+		Reference     string
+		Digest        string
+		SessionID     string
+		RetryCallback func(*Request)
 	}
 
 	requestOption func(c *requestConfig)
@@ -48,6 +50,15 @@ func WithDigest(digest string) requestOption {
 func WithSessionID(id string) requestOption {
 	return func(c *requestConfig) {
 		c.SessionID = id
+	}
+}
+
+// WithRetryCallback specifies a callback that will be invoked before a request
+// is retried. This is useful for, e.g., ensuring an io.Reader used for the body
+// will produce the right content on retry.
+func WithRetryCallback(cb func(*Request)) requestOption {
+	return func(c *requestConfig) {
+		c.RetryCallback = cb
 	}
 }
 

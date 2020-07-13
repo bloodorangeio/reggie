@@ -260,6 +260,21 @@ func TestClient(t *testing.T) {
 		t.Fatalf("Expected body to be \"abc\" but instead got %s", lastCapturedRequestBodyStr)
 	}
 
+	// Test that the retry callback is invoked, if configured.
+	newBody := "not the original body"
+	req = client.NewRequest(PUT, "/a/b/c", WithRetryCallback(func(r *Request) {
+		r.SetBody(newBody)
+	})).SetBody([]byte("original body"))
+	_, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Errors executing request: %s", err)
+	}
+
+	// Ensure the request ended up with the new body.
+	if lastCapturedRequestBodyStr != newBody {
+		t.Fatalf("Expected body to be %q, but instead got %q", newBody, lastCapturedRequestBodyStr)
+	}
+
 	// test for access_token vs. token
 	authUseAccessToken = true
 	req = client.NewRequest(GET, "/v2/<name>/tags/list")

@@ -36,6 +36,10 @@ func (client *Client) retryRequestWithAuth(originalRequest *Request, originalRes
 		originalRequest.QueryParam.Del(k)
 	}
 
+	if originalRequest.retryCallback != nil {
+		originalRequest.retryCallback(originalRequest)
+	}
+
 	authenticationType := authHeaderMatcher.ReplaceAllString(authHeaderRaw, "$1")
 	if strings.EqualFold(authenticationType, "bearer") {
 		h := parseAuthHeader(authHeaderRaw)
