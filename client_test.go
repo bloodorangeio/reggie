@@ -3,6 +3,7 @@ package reggie
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -258,6 +259,34 @@ func TestClient(t *testing.T) {
 	// Check that the body did not get lost somewhere
 	if lastCapturedRequestBodyStr != "abc" {
 		t.Fatalf("Expected body to be \"abc\" but instead got %s", lastCapturedRequestBodyStr)
+	}
+
+	// Test that the retry callback is invoked, if configured.
+	newBody := "not the original body"
+	req = client.NewRequest(PUT, "/a/b/c", WithRetryCallback(func(r *Request) error {
+		r.SetBody(newBody)
+		return nil
+	})).SetBody([]byte("original body"))
+	_, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Errors executing request: %s", err)
+	}
+
+	// Ensure the request ended up with the new body.
+	if lastCapturedRequestBodyStr != newBody {
+		t.Fatalf("Expected body to be %q, but instead got %q", newBody, lastCapturedRequestBodyStr)
+	}
+
+	// Test the case where the retry callback returns an error.
+	req = client.NewRequest(PUT, "/a/b/c", WithRetryCallback(func(r *Request) error {
+		return errors.New("uh oh")
+	})).SetBody([]byte("original body"))
+	_, err = client.Do(req)
+	if err == nil {
+		t.Fatalf("Expected error from callback function, but request returned no error")
+	}
+	if !strings.Contains(err.Error(), "uh oh") {
+		t.Fatalf("Expected error to contain callback error \"uh oh\", but instead got %q", err)
 	}
 
 	// test for access_token vs. token

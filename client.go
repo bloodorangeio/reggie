@@ -133,7 +133,10 @@ func (client *Client) NewRequest(method string, path string, opts ...requestOpti
 	restyRequest.URL = url
 	restyRequest.SetHeader("User-Agent", client.Config.UserAgent)
 
-	return &Request{restyRequest}
+	return &Request{
+		Request:       restyRequest,
+		retryCallback: r.RetryCallback,
+	}
 }
 
 // Do executes a Request and returns a Response.
