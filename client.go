@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -42,6 +43,13 @@ func (c *clientConfig) validate() error {
 	if c.Address == "" {
 		return fmt.Errorf("Address is required")
 	}
+
+	// Validate the url
+	isValid := govalidator.IsURL(c.Address)
+	if !isValid {
+		return fmt.Errorf("%s is not a valid URL", c.Address)
+	}
+
 	if c.UserAgent == "" {
 		return fmt.Errorf("UserAgent is required")
 	}

@@ -220,15 +220,10 @@ func TestClient(t *testing.T) {
 		t.Fatalf("Expected error with missing session id")
 	}
 
-	// bad address on client
-	badClient, err := NewClient("xwejknxw://jshnws")
-	if err != nil {
-		t.Fatalf("Errors creating client with bad address: %s", err)
-	}
-	req = badClient.NewRequest(GET, "/v2/<name>/tags/list", WithName("customname"))
-	resp, err = badClient.Do(req)
+	// bad address on client should not create
+	_, err = NewClient("xwejknxw://jshnws")
 	if err == nil {
-		t.Fatalf("Expected error with bad address")
+		t.Fatalf("Should be errors creating client with bad address: %s", err)
 	}
 
 	// Make sure headers and body match after going through auth
