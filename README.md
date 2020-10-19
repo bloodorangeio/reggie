@@ -258,3 +258,36 @@ func main() {
 	fmt.Printf("Manifest content:\n%s\n", resp.String())
 }
 ```
+
+## Development
+
+To develop bloodorangeio/reggie, you will need to have [Go installed](https://golang.org/doc/install).
+You should then fork the repository, clone the fork, and checkout a new branch.
+
+```bash
+git clone https://github.com/<username>/reggie
+cd reggie 
+git checkout -b add/my-new-feature
+```
+
+You can then make changes to the code, and build as needed. But if you are just
+making local changes that you want to test alongside the library, you should edit
+[client_test.go](client_test.go) and then run tests.
+
+```bash
+$ go test
+2020/10/19 15:11:34.226399 WARN RESTY Using Basic Auth in HTTP mode is not secure, use HTTPS
+2020/10/19 15:11:34.227171 WARN RESTY Using Basic Auth in HTTP mode is not secure, use HTTPS
+2020/10/19 15:11:34.227620 WARN RESTY Using Basic Auth in HTTP mode is not secure, use HTTPS
+2020/10/19 15:11:34.228231 WARN RESTY Using Basic Auth in HTTP mode is not secure, use HTTPS
+2020/10/19 15:11:34.228650 WARN RESTY Using Basic Auth in HTTP mode is not secure, use HTTPS
+2020/10/19 15:11:34.229178 WARN RESTY Using Basic Auth in HTTP mode is not secure, use HTTPS
+PASS
+ok  	github.com/bloodorangeio/reggie	0.006s
+```
+
+Before submitting a pull request, make sure to format the code.
+
+```bash
+go fmt
+```

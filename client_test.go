@@ -62,7 +62,14 @@ func TestClient(t *testing.T) {
 	}))
 	defer registryTestServer.Close()
 
-	client, err := NewClient(registryTestServer.URL,
+	// test client without Address is invalid
+	client, err := NewClient("")
+	if err == nil {
+		t.Fatalf("Providing empty Address should throw error: %s", err)
+	}
+
+	// test creating generic client
+	client, err = NewClient(registryTestServer.URL,
 		WithUsernamePassword("testuser", "testpass"),
 		WithDefaultName("testname"),
 		WithUserAgent("reggie-tests"))
