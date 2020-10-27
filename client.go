@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -35,6 +36,26 @@ type (
 	clientOption func(c *clientConfig)
 )
 
+// validate the client config.
+func (c *clientConfig) validate() error {
+
+	// Check that both Address and UserAgent are defined
+	if c.Address == "" {
+		return fmt.Errorf("Address is required")
+	}
+
+	// Validate the url
+	isValid := govalidator.IsURL(c.Address)
+	if !isValid {
+		return fmt.Errorf("%s is not a valid URL", c.Address)
+	}
+
+	if c.UserAgent == "" {
+		return fmt.Errorf("UserAgent is required")
+	}
+	return nil
+}
+
 // NewClient builds a new Client from provided options.
 func NewClient(address string, opts ...clientOption) (*Client, error) {
 	conf := &clientConfig{}
@@ -46,7 +67,11 @@ func NewClient(address string, opts ...clientOption) (*Client, error) {
 		conf.UserAgent = DefaultUserAgent
 	}
 
-	// TODO: validate config here, return error if it aint no good
+	// Validate the config
+	err := conf.validate()
+	if err != nil {
+		return nil, err
+	}
 
 	client := Client{}
 	client.Client = resty.New()

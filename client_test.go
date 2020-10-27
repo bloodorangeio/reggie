@@ -62,7 +62,14 @@ func TestClient(t *testing.T) {
 	}))
 	defer registryTestServer.Close()
 
-	client, err := NewClient(registryTestServer.URL,
+	// test client without Address is invalid
+	client, err := NewClient("")
+	if err == nil {
+		t.Fatalf("Providing empty Address should throw error: %s", err)
+	}
+
+	// test creating generic client
+	client, err = NewClient(registryTestServer.URL,
 		WithUsernamePassword("testuser", "testpass"),
 		WithDefaultName("testname"),
 		WithUserAgent("reggie-tests"))
@@ -213,15 +220,10 @@ func TestClient(t *testing.T) {
 		t.Fatalf("Expected error with missing session id")
 	}
 
-	// bad address on client
-	badClient, err := NewClient("xwejknxw://jshnws")
-	if err != nil {
-		t.Fatalf("Errors creating client with bad address: %s", err)
-	}
-	req = badClient.NewRequest(GET, "/v2/<name>/tags/list", WithName("customname"))
-	resp, err = badClient.Do(req)
+	// bad address on client should not create
+	_, err = NewClient("xwejknxw://jshnws")
 	if err == nil {
-		t.Fatalf("Expected error with bad address")
+		t.Fatalf("Should be errors creating client with bad address: %s", err)
 	}
 
 	// Make sure headers and body match after going through auth
