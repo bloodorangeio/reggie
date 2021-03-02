@@ -36,7 +36,12 @@ func (resp *Response) GetRelativeLocation() string {
 // GetAbsoluteLocation returns the full URL, including protocol and host,
 // of the location contained in the `Location` header of the response.
 func (resp *Response) GetAbsoluteLocation() string {
-	return resp.Header().Get("Location")
+	loc := resp.Header().Get("Location")
+	_, err := url.Parse(loc)
+	if err != nil {
+		return ""
+	}
+	return loc
 }
 
 // IsUnauthorized returns whether or not the response is a 401
