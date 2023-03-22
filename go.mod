@@ -1,10 +1,11 @@
 module github.com/bloodorangeio/reggie
 
-go 1.13
+go 1.20
 
 require (
-	github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef
-	github.com/go-resty/resty/v2 v2.1.0
-	github.com/mitchellh/mapstructure v1.1.2
-	github.com/opencontainers/distribution-spec v1.0.0-rc0.0.20200108182153-219f20cbcfa1
+	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
+	github.com/go-resty/resty/v2 v2.7.0
+	github.com/mitchellh/mapstructure v1.5.0
 )
+
+require golang.org/x/net v0.0.0-20211029224645-99673261e6eb // indirect
