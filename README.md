@@ -29,6 +29,7 @@ You may also construct the client with a number of options related to authentica
 client, err := reggie.NewClient("https://r.mysite.io",
     reggie.WithUsernamePassword("myuser", "mypass"),  // registry credentials
     reggie.WIthDefaultName("myorg/myrepo"),           // default repo name
+    reggie.WithInsecureSkipTLSVerify(true),           // skip TLS verification
     reggie.WithDebug(true))                           // enable debug logging
 ```
 
