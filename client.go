@@ -1,6 +1,7 @@
 package reggie
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -24,13 +25,14 @@ type (
 	}
 
 	clientConfig struct {
-		Address     string
-		AuthScope   string
-		Username    string
-		Password    string
-		Debug       bool
-		DefaultName string
-		UserAgent   string
+		Address               string
+		AuthScope             string
+		Username              string
+		Password              string
+		Debug                 bool
+		DefaultName           string
+		UserAgent             string
+		InsecureSkipTLSVerify bool
 	}
 
 	clientOption func(c *clientConfig)
@@ -78,7 +80,7 @@ func NewClient(address string, opts ...clientOption) (*Client, error) {
 	client.Config = conf
 	client.Debug = conf.Debug
 	client.SetRedirectPolicy(resty.FlexibleRedirectPolicy(20))
-	client.SetTransport(createTransport())
+	client.SetTransport(createTransport(conf.InsecureSkipTLSVerify))
 
 	return &client, nil
 }
@@ -116,6 +118,13 @@ func WithDebug(debug bool) clientOption {
 func WithUserAgent(userAgent string) clientOption {
 	return func(c *clientConfig) {
 		c.UserAgent = userAgent
+	}
+}
+
+// WithInsecureSkipTLSVerify configures the insecure option to skip TLS verification.
+func WithInsecureSkipTLSVerify(skip bool) clientOption {
+	return func(c *clientConfig) {
+		c.InsecureSkipTLSVerify = skip
 	}
 }
 
@@ -177,7 +186,7 @@ func (client *Client) Do(req *Request) (*Response, error) {
 }
 
 // adapted from Resty: https://github.com/go-resty/resty/blob/de0735f66dae7abf8fb1073b4ace3032c1491424/client.go#L928
-func createTransport() *http.Transport {
+func createTransport(insecureSkipTLSVerify bool) *http.Transport {
 	dialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
@@ -192,5 +201,8 @@ func createTransport() *http.Transport {
 		ExpectContinueTimeout: 1 * time.Second,
 		MaxIdleConnsPerHost:   runtime.GOMAXPROCS(0) + 1,
 		DisableCompression:    true,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: insecureSkipTLSVerify, //nolint: gosec
+		},
 	}
 }

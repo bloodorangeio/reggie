@@ -42,7 +42,7 @@ func TestClient(t *testing.T) {
 
 		h := r.Header.Get("Authorization")
 		if h == "Bearer abc123" {
-			w.Header().Set("Location", "http://abc123location.io/v2/blobs/uploads/e361aeb8-3181-11ea-850d-2e728ce88125")
+			w.Header().Set("Location", "https://abc123location.io/v2/blobs/uploads/e361aeb8-3181-11ea-850d-2e728ce88125")
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`
     {
@@ -72,9 +72,14 @@ func TestClient(t *testing.T) {
 	client, err = NewClient(registryTestServer.URL,
 		WithUsernamePassword("testuser", "testpass"),
 		WithDefaultName("testname"),
-		WithUserAgent("reggie-tests"))
+		WithUserAgent("reggie-tests"),
+		WithInsecureSkipTLSVerify(true))
 	if err != nil {
 		t.Fatalf("Errors creating client: %s", err)
+	}
+
+	if !client.Config.InsecureSkipTLSVerify {
+		t.Errorf("Setting insecure skip TLS verify didn't work")
 	}
 
 	// test setting debug option
