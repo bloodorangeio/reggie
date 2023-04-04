@@ -303,4 +303,27 @@ func TestClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Errors executing request: %s", err)
 	}
+
+	// TODO: disable this
+	// See https://github.com/opencontainers/distribution-spec/issues/396
+	// Accept header should not be present unless explicitly set
+	req = client.NewRequest(PUT, "/a/b/c").
+		SetHeader("Content-Type", "application/vnd.oci.image.manifest.v1+json")
+	_, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Errors executing request: %s", err)
+	}
+	if a := lastCapturedRequest.Header.Get("Accept"); a != "" {
+		t.Fatalf("Expected lastCapturedAcceptHeader to be empty string, but instead got %s", a)
+	}
+	req = client.NewRequest(PUT, "/a/b/c").
+		SetHeader("Content-Type", "application/vnd.oci.image.manifest.v1+json").
+		SetHeader("Accept", "application/cha.cha.cha.v1+json")
+	_, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Errors executing request: %s", err)
+	}
+	if a := lastCapturedRequest.Header.Get("Accept"); a != "application/cha.cha.cha.v1+json" {
+		t.Fatalf("Expected lastCapturedAcceptHeader to be application/cha.cha.cha.v1+json, but instead got %s", a)
+	}
 }

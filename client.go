@@ -82,6 +82,22 @@ func NewClient(address string, opts ...clientOption) (*Client, error) {
 	client.SetRedirectPolicy(resty.FlexibleRedirectPolicy(20))
 	client.SetTransport(createTransport(conf.InsecureSkipTLSVerify))
 
+	// TODO: disable this
+	// See https://github.com/opencontainers/distribution-spec/issues/396
+	// Restly will automatically set Accept based on Content-Type. When a user
+	// uses the "SetHeader" method, we intercept it and set the value on the
+	// context. If that context value is missing, delete it as it
+	// means Resty has automatically set the value for us (bad)
+	client.SetPreRequestHook(func(_ *resty.Client, req *http.Request) error {
+		acceptHeaderVal := req.Context().Value(contextKeyAcceptHeader)
+		if acceptHeaderVal != nil {
+			req.Header.Set("Accept", fmt.Sprintf("%s", acceptHeaderVal))
+		} else if req.Header.Get("Accept") != "" {
+			req.Header.Del("Accept")
+		}
+		return nil
+	})
+
 	return &client, nil
 }
 
