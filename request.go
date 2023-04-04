@@ -1,8 +1,10 @@
 package reggie
 
 import (
+	"context"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -27,7 +29,11 @@ type (
 	}
 
 	requestOption func(c *requestConfig)
+
+	contextKey string
 )
+
+const contextKeyAcceptHeader contextKey = "reggie-accept"
 
 // WithName sets the namespace per a single request.
 func WithName(name string) requestOption {
@@ -74,6 +80,11 @@ func (req *Request) SetBody(body interface{}) *Request {
 
 // SetHeader wraps the resty SetHeader and returns the request, allowing method chaining
 func (req *Request) SetHeader(header, content string) *Request {
+	// TODO: disable this
+	// See https://github.com/opencontainers/distribution-spec/issues/396
+	if strings.ToLower(header) == "accept" {
+		req.Request.SetContext(context.WithValue(req.Request.Context(), contextKeyAcceptHeader, content))
+	}
 	req.Request.SetHeader(header, content)
 	return req
 }
