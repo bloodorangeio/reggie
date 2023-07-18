@@ -50,8 +50,10 @@ func (client *Client) retryRequestWithAuth(originalRequest *Request, originalRes
 		req := client.Client.NewRequest().
 			SetQueryParam("service", h.Service).
 			SetHeader("Accept", "application/json").
-			SetHeader("User-Agent", client.Config.UserAgent).
-			SetBasicAuth(client.Config.Username, client.Config.Password)
+			SetHeader("User-Agent", client.Config.UserAgent)
+		if client.Config.Username != "" {
+			req.SetBasicAuth(client.Config.Username, client.Config.Password)
+		}
 		if s := client.Config.AuthScope; s != "" {
 			req.SetQueryParam("scope", s)
 		} else if h.Scope != "" {
